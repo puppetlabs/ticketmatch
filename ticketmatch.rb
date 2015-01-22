@@ -7,7 +7,6 @@
 require 'rubygems'
 require 'highline/import' # see https://github.com/JEG2/highline
 require 'json'
-require 'uri'
 
 git_from = ask('Enter Git From Rev: ')
 git_to = ask('Enter Git To Rev: ') { |q| q.default = 'master' }
