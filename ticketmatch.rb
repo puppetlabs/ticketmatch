@@ -31,7 +31,7 @@ jira_version = ask('Enter JIRA fix version: ')
 jira_data = {
     :jql => "project = #{jira_project} AND fixVersion = \"#{jira_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields => ['key']
+    :fields => ['status']
 }
 # Process file with Jira issues
 post_data = JSON.fast_generate(jira_data)
@@ -41,29 +41,41 @@ rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
 end
+# puts JSON.pretty_unparse(jira_issues)
 
-known_issues = jira_issues['issues'].reduce({}) {|memo, i| memo[i['key']] = true; memo}
+known_issues = (jira_issues['issues'] || []).reduce({}) {|memo, i| memo[i['key']] = [:not_in_git, i['fields']['status']['name']]; memo}
+if known_issues.empty?
+  say("JIRA returned no results for project '#{jira_project}' and fix version '#{jira_version}'")
+  exit(status=1)
+end
 
 # Print list of ssues sorted, for each show sha + comment after reference
 #
 result.keys.sort.each do |k|
-  if known_issues[k]
-    marker = '--'
-    known_issues[k] = :in_git
+  resolution = known_issues[k]
+  if resolution.nil?
+    puts "** #{k.upcase}"
   else
-    marker = '**'
+    puts "-- #{k.upcase} (#{resolution[1]})"
+    resolution[0] = :in_git
   end
-  puts "#{marker} #{k.upcase}"
   v = result[k]
   v.each do | data |
     puts "    #{data[0]}  #{data[1]}"
   end
 end
 puts "---"
-not_found = known_issues.select {|k,v| v != :in_git }
-if !not_found.empty?
-  say("<%= color('ISSUES NOT FOUND IN GIT', RED) %>")
-  not_found.keys.each { |k| say("<%= color('#{k}', RED) %>")}
+unresolved = known_issues.reject {|k,v| v[1] == 'Resolved' || v[1] == 'Closed' }
+unresolved_not_in_git = unresolved.reject {|k,v| v[0] == :in_git}
+if !unresolved_not_in_git.empty?
+  say("<%= color('UNRESOLVED ISSUES NOT FOUND IN GIT', RED) %>")
+  unresolved_not_in_git.each_pair { |k,v| say("<%= color('#{k} #{v[1]}', RED) %>")}
 else
   say("<%= color('ALL ISSUES WERE FOUND IN GIT', GREEN) %>")
+end
+
+unresolved_in_git =  unresolved.select {|k,v| v[0] == :in_git}
+if !unresolved_in_git.empty?
+  say("<%= color('UNRESOLVED ISSUES FOUND IN GIT', RED) %>")
+  unresolved_in_git.each_pair { |k,v| say("<%= color('#{k} #{v[1]}', RED) %>")}
 end
