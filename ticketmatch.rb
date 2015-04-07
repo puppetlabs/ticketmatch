@@ -2,7 +2,7 @@
 # and matches this with a list of tickets from Jira that corresponds to
 # a project and a fixVersion
 #
-# You must cd to the puppet get repo for this to work.
+# You must cd to the git repo for this to work.
 #
 require 'rubygems'
 require 'highline/import' # see https://github.com/JEG2/highline
@@ -49,7 +49,7 @@ if known_issues.empty?
   exit(status=1)
 end
 
-# Print list of ssues sorted, for each show sha + comment after reference
+# Print list of issues sorted, for each show sha + comment after reference
 #
 result.keys.sort.each do |k|
   resolution = known_issues[k]
