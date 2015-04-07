@@ -65,6 +65,18 @@ result.keys.sort.each do |k|
   end
 end
 puts "---"
+
+unknown_issues = result.keys.reject do |k|
+  ["MAINT", "DOC", "DOCS", "TRIVIAL", "PACKAGING", "UNMARKED"].include?(k) ||
+  known_issues.include?(k)
+end
+if !unknown_issues.empty?
+  say("<%= color('COMMIT TOKENS NOT FOUND IN JIRA (OR NOT WITH FIX VERSION OF #{jira_version})', RED) %>")
+  unknown_issues.sort.each{ |k| say("<%= color('#{k}', RED) %>")}
+else
+  say("<%= color('ALL COMMIT TOKENS WERE FOUND IN JIRA', GREEN) %>")
+end
+
 unresolved = known_issues.reject {|k,v| v[1] == 'Resolved' || v[1] == 'Closed' }
 unresolved_not_in_git = unresolved.reject {|k,v| v[0] == :in_git}
 if !unresolved_not_in_git.empty?
