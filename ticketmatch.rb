@@ -8,6 +8,7 @@
 require 'rubygems'
 require 'highline/import' # see https://github.com/JEG2/highline
 require 'json'
+require 'optparse'
 
 # store the basic information of a git log message
 class GitEntry
@@ -175,6 +176,37 @@ class JiraTickets
   end
 end
 
+git_from_rev = nil
+git_to_rev = nil
+jira_project_name = nil
+jira_project_fixed_version = nil
+
+parser = OptionParser.new do |opts|
+  opts.banner = 'Usage: ruby ticketmatch.rb [options]'
+
+  opts.on('-f', '--from from_rev', 'from git revision') do |from_rev|
+    git_from_rev = from_rev;
+  end
+
+  opts.on('-t', '--to to_rev', 'to git revision') do |to_rev|
+    git_to_rev = to_rev;
+  end
+
+  opts.on('-p', '--project JIRA_project', 'JIRA project ID') do |project_name|
+    jira_project_name = project_name;
+  end
+
+  opts.on('-v', '--version version_fixed_in', 'JIRA "fixed-in" version') do |fixed_version|
+    jira_project_fixed_version = fixed_version;
+  end
+
+  opts.on('-h', '--help', 'this message') do
+    puts opts
+    exit(status=1)
+  end
+end
+
+parser.parse!
 
 # check if we are in a git tree or not
 #
@@ -184,8 +216,13 @@ unless in_repo.chomp == "true"
   exit(1)
 end
 
-git_from_rev = ask('Enter Git From Rev: ')
-git_to_rev   = ask('Enter Git To Rev: ') {|q| q.default = 'master'}
+if git_from_rev == nil
+  git_from_rev = ask('Enter Git From Rev: ')
+end
+
+if git_to_rev == nil
+  git_to_rev = ask('Enter Git To Rev: ') {|q| q.default = 'master'}
+end
 
 # Get the log from git
 # process and store in a hash per user entered ticket reference
@@ -206,8 +243,15 @@ git_commits.associate_reverts
 
 # collect the Jira information
 #
-jira_project_name          = ask('Enter JIRA project: ') {|q| q.default = 'PUP'}
-jira_project_fixed_version = ask('Enter JIRA fix version: ') {|q| q.default = "#{jira_project_name} #{git_to_rev}"}
+if jira_project_name == nil
+  jira_project_name = ask('Enter JIRA project: ') {|q| q.default = 'PUP'}
+end
+
+if jira_project_fixed_version == nil
+  jira_project_fixed_version = ask('Enter JIRA fix version: ') do |q|
+    q.default = "#{jira_project_name} #{git_to_rev}"
+  end
+end
 
 # get the list of tickets from the JIRA project that contain the fixed version
 jira_data = {

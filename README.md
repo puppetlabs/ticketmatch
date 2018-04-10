@@ -17,6 +17,20 @@ is contained in Jira. It does the following:
 * The Jira project name (example PUP)
 * The Jira fix version to look for (example "PUP 4.10.5")
 
+# Command line options
+
+If you like, you can specify all needed options via the command line. Usage is shown
+below
+
+```
+Usage: ruby ticketmatch.rb [options]
+    -f, --from from_rev              from git revision
+    -t, --to to_rev                  to git revision
+    -p, --project JIRA_project       JIRA project ID
+    -v, --version version_fixed_in   JIRA "fixed-in" version (in quotes for now, please)
+    -h, --help                       this message
+```
+
 # How to read the output
 
 ## The git commit section
