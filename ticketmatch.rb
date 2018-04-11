@@ -180,6 +180,7 @@ git_from_rev = nil
 git_to_rev = nil
 jira_project_name = nil
 jira_project_fixed_version = nil
+interactive = true
 
 parser = OptionParser.new do |opts|
   opts.banner = 'Usage: ruby ticketmatch.rb [options]'
@@ -196,13 +197,17 @@ parser = OptionParser.new do |opts|
     jira_project_name = project_name;
   end
 
-  opts.on('-v', '--version version_fixed_in', 'JIRA "fixed-in" version') do |fixed_version|
+  opts.on('-v', '--version version_fixed_in', 'JIRA "fixed-in" version (in quotes for now, please)') do |fixed_version|
     jira_project_fixed_version = fixed_version;
+  end
+
+  opts.on('-c', '--ci', 'continuous integration mode (no prompting)') do
+    interactive = false;
   end
 
   opts.on('-h', '--help', 'this message') do
     puts opts
-    exit(status=1)
+    exit 1
   end
 end
 
@@ -213,15 +218,19 @@ parser.parse!
 in_repo = %x{git rev-parse --is-inside-work-tree 2>/dev/null}
 unless in_repo.chomp == "true"
   say('ERROR: Please run ticketmatch from a git repo directory')
-  exit(1)
+  exit 1
 end
 
-if git_from_rev == nil
+if git_from_rev == nil and interactive
   git_from_rev = ask('Enter Git From Rev: ')
+else
+  abort('ERROR: must specify a Git from revision')
 end
 
-if git_to_rev == nil
+if git_to_rev == nil and interactive
   git_to_rev = ask('Enter Git To Rev: ') {|q| q.default = 'master'}
+else
+  abort('ERROR: must specify a Git to revision')
 end
 
 # Get the log from git
@@ -243,14 +252,18 @@ git_commits.associate_reverts
 
 # collect the Jira information
 #
-if jira_project_name == nil
+if jira_project_name == nil and interactive
   jira_project_name = ask('Enter JIRA project: ') {|q| q.default = 'PUP'}
+else
+  abort('ERROR: must specify a JIRA project ID')
 end
 
-if jira_project_fixed_version == nil
+if jira_project_fixed_version == nil and interactive
   jira_project_fixed_version = ask('Enter JIRA fix version: ') do |q|
     q.default = "#{jira_project_name} #{git_to_rev}"
   end
+else
+  abort('ERROR: must specify a JIRA fix version')
 end
 
 # get the list of tickets from the JIRA project that contain the fixed version
