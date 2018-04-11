@@ -17,10 +17,53 @@ is contained in Jira. It does the following:
 * The Jira project name (example PUP)
 * The Jira fix version to look for (example "PUP 4.10.5")
 
-# Command line options
+# How to run ticketmatch
+
+```$ cd <git_project_directory>  ```
+
+checkout the branch you want to run against  
+
+```$ git checkout 5.0.x  ```
+
+Run ticketmatch.rb
+
+```
+$ ruby path/ticketmatch.rb  
+Enter Git From Rev: 4.10.2
+Enter Git To Rev: |master| 4.10.3
+Enter JIRA project: |PUP|
+Enter JIRA fix version: |PUP 4.10.3|
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  2001  100  1897  100   104   7295    399 --:--:-- --:--:-- --:--:--  7324
+** MAINT
+    e8bc39dba  correct comment in CharacterEncoding::scrub
+-- PUP-7650 (Closed)
+    a75f3c10a  Remove dead code and unnecessary call to #downcase
+    089ae6286  Fix issue related to deserialization of types
+    6f0e92737  Ensure that Loader::TypedName always uses lower-case
+-- PUP-7666 (Closed)
+    3dfa1cdb3  Update puppet version to 4.10.3
+** REVERT
+    7f663f732  Revert "Merge pull request #5738 from Iristyle/ticket/LTS-1.7/PUP-1980-fix-URI-escaping-for-UTF8"
+    7dede9921  Revert "Merge pull request #5964 from Iristyle/ticket/stable/PUP-1890-fix-duplicated-forge-query-parameter-encoding"
+
+----- Git commits in Jira -----
+COMMIT TOKENS NOT FOUND IN JIRA (OR NOT WITH FIX VERSION OF PUP 4.10.3)
+REVERT 7f663f732
+REVERT 7dede9921
+
+----- Unresolved Jira tickets not in git commits -----
+ALL ISSUES WERE FOUND IN GIT
+
+----- Unresolved Jira tickets found in git commits -----
+ALL ISSUES WERE RESOLVED IN JIRA
+```
+## Command line options/running in CI
 
 If you like, you can specify all needed options via the command line. Usage is shown
-below
+below; if you specify continuous integration mode (```--ci```), then all other arguments are
+required and will abort if not specified.
 
 ```
 Usage: ruby ticketmatch.rb [options]
@@ -28,9 +71,9 @@ Usage: ruby ticketmatch.rb [options]
     -t, --to to_rev                  to git revision
     -p, --project JIRA_project       JIRA project ID
     -v, --version version_fixed_in   JIRA "fixed-in" version (in quotes for now, please)
+    -c, --ci                         continuous integration mode (no prompting)
     -h, --help                       this message
 ```
-
 # How to read the output
 
 ## The git commit section
@@ -86,47 +129,4 @@ the proper state. Each section will print a state for the section.
 ----- Git commits in Jira -----
 ----- Unresolved Jira tickets not in git commits -----
 ----- Unresolved Jira tickets found in git commits -----
-```
-
-# How to run ticketmatch
-
-```$ cd <git_project_directory>  ```
-
-checkout the branch you want to run against  
-
-```$ git checkout 5.0.x  ```
-
-Run ticketmatch.rb
-
-```
-$ ruby path/ticketmatch.rb  
-Enter Git From Rev: 4.10.2
-Enter Git To Rev: |master| 4.10.3
-Enter JIRA project: |PUP|
-Enter JIRA fix version: |PUP 4.10.3|
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100  2001  100  1897  100   104   7295    399 --:--:-- --:--:-- --:--:--  7324
-** MAINT
-    e8bc39dba  correct comment in CharacterEncoding::scrub
--- PUP-7650 (Closed)
-    a75f3c10a  Remove dead code and unnecessary call to #downcase
-    089ae6286  Fix issue related to deserialization of types
-    6f0e92737  Ensure that Loader::TypedName always uses lower-case
--- PUP-7666 (Closed)
-    3dfa1cdb3  Update puppet version to 4.10.3
-** REVERT
-    7f663f732  Revert "Merge pull request #5738 from Iristyle/ticket/LTS-1.7/PUP-1980-fix-URI-escaping-for-UTF8"
-    7dede9921  Revert "Merge pull request #5964 from Iristyle/ticket/stable/PUP-1890-fix-duplicated-forge-query-parameter-encoding"
-
------ Git commits in Jira -----
-COMMIT TOKENS NOT FOUND IN JIRA (OR NOT WITH FIX VERSION OF PUP 4.10.3)
-REVERT 7f663f732
-REVERT 7dede9921
-
------ Unresolved Jira tickets not in git commits -----
-ALL ISSUES WERE FOUND IN GIT
-
------ Unresolved Jira tickets found in git commits -----
-ALL ISSUES WERE RESOLVED IN JIRA
 ```
