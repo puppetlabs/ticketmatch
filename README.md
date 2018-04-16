@@ -74,6 +74,29 @@ Usage: ruby ticketmatch.rb [options]
     -c, --ci                         continuous integration mode (no prompting)
     -h, --help                       this message
 ```
+# Batch processing
+
+If you need to check all the components that comprise ```puppet-agent``` for a release, use
+```matchbatch.sh```. It requires one argument: the tag for the version of puppet-agent you
+care about. It will process ```puppet-agent``` and all components that are tagged with a SHA.
+
+Note that all component Git directories are expected to already be cloned. This will be addressed
+in a future release.
+
+## How to run matchbatch
+
+set your working directory
+
+```cd puppet-agent```
+
+get the version you care about
+
+```git checkout <the revision>```
+
+invoke matchbatch
+
+```path/matchbatch.sh <the revision>```
+
 # How to read the output
 
 ## The git commit section
