@@ -221,16 +221,20 @@ unless in_repo.chomp == "true"
   exit 1
 end
 
-if git_from_rev == nil and interactive
-  git_from_rev = ask('Enter Git From Rev: ')
-else
-  abort('ERROR: must specify a Git from revision')
+if git_from_rev == nil
+  if interactive
+    git_from_rev = ask('Enter Git From Rev: ')
+  else
+    abort('ERROR: must specify a Git from revision')
+  end
 end
 
-if git_to_rev == nil and interactive
-  git_to_rev = ask('Enter Git To Rev: ') {|q| q.default = 'master'}
-else
-  abort('ERROR: must specify a Git to revision')
+if git_to_rev == nil
+  if interactive
+    git_to_rev = ask('Enter Git To Rev: ') {|q| q.default = 'master'}
+  else
+    abort('ERROR: must specify a Git to revision')
+  end
 end
 
 # Get the log from git
@@ -243,7 +247,7 @@ git_log.each_line do |line|
 end
 if git_commits.empty?
   say("No results found in git log for range #{git_from_rev}..#{git_to_rev}")
-  exit(status=1)
+  exit 0
 end
 
 # associate the reverts
@@ -252,18 +256,22 @@ git_commits.associate_reverts
 
 # collect the Jira information
 #
-if jira_project_name == nil and interactive
-  jira_project_name = ask('Enter JIRA project: ') {|q| q.default = 'PUP'}
-else
-  abort('ERROR: must specify a JIRA project ID')
+if jira_project_name == nil
+  if interactive
+    jira_project_name = ask('Enter JIRA project: ') {|q| q.default = 'PUP'}
+  else
+    abort('ERROR: must specify a JIRA project ID')
+  end
 end
 
-if jira_project_fixed_version == nil and interactive
-  jira_project_fixed_version = ask('Enter JIRA fix version: ') do |q|
-    q.default = "#{jira_project_name} #{git_to_rev}"
+if jira_project_fixed_version == nil
+  if interactive
+    jira_project_fixed_version = ask('Enter JIRA fix version: ') do |q|
+      q.default = "#{jira_project_name} #{git_to_rev}"
+    end
+  else
+    abort('ERROR: must specify a JIRA fix version')
   end
-else
-  abort('ERROR: must specify a JIRA fix version')
 end
 
 # get the list of tickets from the JIRA project that contain the fixed version
@@ -284,7 +292,7 @@ end
 
 if jira_issues['issues'].nil?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
-  exit(status=1)
+  exit 0
 end
 jira_tickets = JiraTickets.new
 jira_issues['issues'].each do |issue|
@@ -292,7 +300,7 @@ jira_issues['issues'].each do |issue|
 end
 if jira_tickets.empty?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
-  exit(status=1)
+  exit 0
 end
 
 # Print list of issues sorted, for each show sha + comment after reference
