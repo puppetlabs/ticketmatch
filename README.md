@@ -1,8 +1,8 @@
 # ticketmatch
 Simple utility script for Jira &lt;-> git reconciliation
 
-This script can be used to reconcile the git commit messages and what
-is contained in Jira. It does the following:
+This script can be used to reconcile the git commit messages and what is contained in Jira. It does
+the following:
 
 * Collects the list of commits between the 2 provided git revisions
 * Collects the Jira tickets for a project and the fixed version
@@ -61,9 +61,9 @@ ALL ISSUES WERE RESOLVED IN JIRA
 ```
 ## Command line options/running in CI
 
-If you like, you can specify all needed options via the command line. Usage is shown
-below; if you specify continuous integration mode (```--ci```), then all other arguments are
-required and will abort if not specified.
+If you like, you can specify all needed options via the command line. Usage is shown below; if you
+specify continuous integration mode (`--ci`), then all other arguments are required and will abort
+if not specified.
 
 ```
 Usage: ruby ticketmatch.rb [options]
@@ -74,12 +74,78 @@ Usage: ruby ticketmatch.rb [options]
     -c, --ci                         continuous integration mode (no prompting)
     -h, --help                       this message
 ```
+
+# Batch processing
+
+If you need to check all the components that comprise `puppet-agent` for a release, use
+`pa_matchbatch.sh`. It requires one argument: the revision (SHA or reference) of `puppet-agent` you
+care about. It will process `puppet-agent` and all its components that are tagged with a SHA.
+
+Component directories will be cloned from the path provided in their `component.json` file and the
+appropriate branch set. If a given component already exists, a Git fetch will be performed to get
+things up to date (see environment variables, below, for additional options).
+
+## How to run pa_matchbatch (one way)
+
+set your working directory to someplace (cannot be `puppet-agent`; can be its parent or empty)
+
+```cd <a_directory>```
+
+invoke pa_matchbatch
+
+```path/pa_matchbatch.sh <the_revision>```
+
+## How to run pa_matchbatch (another way)
+
+point the WORKSPACE environment variable to a directory (ditto)
+
+```export WORKSPACE="fully_qualified_path_to_a_dir"```
+
+invoke pa_matchbatch
+
+```path/pa_matchbatch.sh <the_revision>```
+
+## Other environment variables of interest
+
+There are a few additional environment variables (see `WORKSPACE`, above) that control behavior. All
+variables have sensible defaults.
+
+`PUPPET_AGENT_URL` controls which Git repo to fetch the baseline puppet-agent from. It defaults to
+`git@github.com:puppetlabs/puppet-agent.git`.
+
+`TICKETMATCH_PATH` indicates where to find the `ticketmatch.rb` script. It defaults to the same
+directory as the `pa_matchbatch.sh` script.
+
+`FETCH_REMOTE` indicates what should be used as the base for a fetch. It defaults to `origin`.
+
+`OVERRIDE_PATH` indicates where to find version overrides. See next section. It defaults to
+`/tmp/version_overrides.txt`.
+
+## Overriding the JIRA 'fixed in' version
+
+In certain rare circumstances, typically merge-ups, it's possible for an earlier version number to
+be chronologically later than a later version number. This results in the wrong version being
+picked up as the JIRA 'fixed in' version of interest. It is possible to override this automatic
+version selection on a component-by-component basis. Do the following:
+
+create the override file
+
+```touch /tmp/version_overrides.txt```
+
+for each component that needs an override, put in a line that specifies the component and desired
+version override
+
+```facter:1.2.3```
+
+There can be as many unique components lines as you like. The presence or absence of the file
+controls if things are overridden or not.
+
 # How to read the output
 
 ## The git commit section
 
-The output contains some basic sections which roll up git commits that are not
-associated with a Jira ticket listed in the git commit.
+The output contains some basic sections which roll up git commits that are not associated with a
+Jira ticket listed in the git commit.
 
 ```
 ** DOCS
@@ -88,9 +154,8 @@ associated with a Jira ticket listed in the git commit.
 ** UNMARKED
 ```
 
-A special section exists for commits that ticketmatch.rb has determined are a 
-revert, but it could not associate the revert commit to a specific git commit
-(based on the revert's description string)
+A special section exists for commits that ticketmatch.rb has determined are a  revert, but it could
+not associate the revert commit to a specific git commit (based on the revert's description string)
 
 ```
 ** REVERT
@@ -100,11 +165,10 @@ revert, but it could not associate the revert commit to a specific git commit
 
 ## Jira ticket numbers
 
-The output also contains Jira ticket names found from the the git commit messages
-and the Jira tickets tagged with the fixed version supplied:
+The output also contains Jira ticket names found from the the git commit messages and the Jira
+tickets tagged with the fixed version supplied:
 
-Tickets that are preceded by a `--` have an associated Jira ticket with the supplied
-fixed version.
+Tickets that are preceded by a `--` have an associated Jira ticket with the supplied fixed version.
 
 Tickets that are preceded by a `**` were listed in the git commit messages only
 
@@ -123,8 +187,9 @@ The `R` in column 2 denotes that the git commit is a revert of the preceding com
 
 ## Jira Ticket status
 
-There are 3 sections which try to convey which of the Jira tickets are not in
-the proper state. Each section will print a state for the section.
+There are 3 sections which try to convey which of the Jira tickets are not in the proper state. Each
+section will print a state for the section.
+
 ```
 ----- Git commits in Jira -----
 ----- Unresolved Jira tickets not in git commits -----
