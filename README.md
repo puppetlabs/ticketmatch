@@ -127,6 +127,11 @@ of "puppet-agent-private") since the script internally figures out whether to cl
 fork. For example, IGNORE_FOR="puppet-agent facter pxp-agent" will not run ticketmatch on puppet-agent,
 facter and pxp-agent. It defaults to empty.
 
+`ONLY_ON` contains a (space-separated) list of foss repos that we exclusively want to process, ignoring 
+all other repos. For example, ONLY_ON="puppet-agent facter" will run ticketmatch only on puppet-agent and
+facter. It defaults to processing all of the repos. Note that if a repo is in both ONLY_ON and IGNORE_REPOS,
+then pa_matchbatch.sh will not process it.
+
 ## Overriding the JIRA 'fixed in' version
 
 In certain rare circumstances, typically merge-ups, it's possible for an earlier version number to

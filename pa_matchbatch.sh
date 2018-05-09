@@ -184,12 +184,20 @@ repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
 
 versionsUsed=""
 ignored_repos="${IGNORE_FOR}"
+only_on="${ONLY_ON}"
 
 for currentItem in ${repoRevMap}; do
 	to_rev=$(echo -n ${currentItem} | cut -d'|' -f1)
 	repo_url=$(echo -n ${currentItem} | cut -d'|' -f2)
 	repo=$(parseRepoName ${repo_url})
 	foss_name=$(stripPrivateSuffix ${repo})
+
+	# If a non-empty value for ONLY_ON was passed-in, then we want to run
+	# ticketmatch only on those repos. This is equivalent to ignoring all
+	# repos that aren't a part of ONLY_ON.
+	if [[ ! -z "${only_on}" ]] && ! containsElement "${only_on}" "${foss_name}"; then
+		ignored_repos="${ignored_repos} ${foss_name}"
+	fi
 
 	# something like
 	#    [[ "${ignored_repos}" =~ ${foss_name} ]]
