@@ -121,6 +121,12 @@ directory as the `pa_matchbatch.sh` script.
 `OVERRIDE_PATH` indicates where to find version overrides. See next section. It defaults to
 `/tmp/version_overrides.txt`.
 
+`IGNORE_FOR` contains a (space-separated) list of repos that we do not want to process, i.e.
+run ticketmatch on. Each repo should be specified by their foss name (e.g. "puppet-agent" instead
+of "puppet-agent-private") since the script internally figures out whether to clone a foss or private
+fork. For example, IGNORE_FOR="puppet-agent facter pxp-agent" will not run ticketmatch on puppet-agent,
+facter and pxp-agent. It defaults to empty.
+
 ## Overriding the JIRA 'fixed in' version
 
 In certain rare circumstances, typically merge-ups, it's possible for an earlier version number to

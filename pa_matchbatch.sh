@@ -36,6 +36,20 @@ parseRepoName() {
 	basename ${1} .git
 }
 
+# checks if an array contains the given element
+containsElement() {
+	local array="${1}"
+	local element="${2}"
+
+	for e in ${array}; do
+	  if [[ "${e}" == "${element}" ]]; then
+	    return 0
+	  fi
+	done
+
+	return 1
+}
+
 # get rev hashes in the form [to_rev]|[url]
 getComponentRevMap() {
 	pushd puppet-agent
@@ -169,12 +183,21 @@ repoRevMap=$(getComponentRevMap)
 repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
 
 versionsUsed=""
+ignored_repos="${IGNORE_FOR}"
 
 for currentItem in ${repoRevMap}; do
 	to_rev=$(echo -n ${currentItem} | cut -d'|' -f1)
 	repo_url=$(echo -n ${currentItem} | cut -d'|' -f2)
 	repo=$(parseRepoName ${repo_url})
 	foss_name=$(stripPrivateSuffix ${repo})
+
+	# something like
+	#    [[ "${ignored_repos}" =~ ${foss_name} ]]
+	# will not work when $ignored_repos contains e.g. puppet-agent
+	# and $foss_name is puppet.
+	if containsElement "${ignored_repos}" "${foss_name}"; then
+		continue
+	fi
 
 	echo "<><><><><><><><><><>"
 	cloneOrFetch "${to_rev}" "${repo_url}"
