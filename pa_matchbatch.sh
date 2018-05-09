@@ -25,6 +25,31 @@ popd() {
 	builtin popd "$@" > /dev/null
 }
 
+# strips the "-private" part from a repo
+# name, useful for private forks
+stripPrivateSuffix() {
+	echo -n ${1} | sed 's/-private$//'
+}
+
+# parses the repo name from a given git URL
+parseRepoName() {
+	basename ${1} .git
+}
+
+# checks if an array contains the given element
+containsElement() {
+	local array="${1}"
+	local element="${2}"
+
+	for e in ${array}; do
+	  if [[ "${e}" == "${element}" ]]; then
+	    return 0
+	  fi
+	done
+
+	return 1
+}
+
 # get rev hashes in the form [to_rev]|[url]
 getComponentRevMap() {
 	pushd puppet-agent
@@ -121,9 +146,10 @@ getJiraFixedInFor() {
 }
 
 cloneOrFetch() {
-	local repoName=${1}
-	local targetRev=${2}
-	local url=${3}
+	local targetRev=${1}
+	local url=${2}
+
+	local repoName=$(parseRepoName ${url})
 
 	if [[ -d ${repoName} ]]; then
 		pushd ${repoName}
@@ -149,7 +175,7 @@ baseDir=${WORKSPACE:-${PWD}}
 cd ${baseDir}
 
 # get desired revision of puppet-agent in place
-cloneOrFetch "puppet-agent" "${puppetAgentBaseRev}" "${PUPPET_AGENT_URL}"
+cloneOrFetch "${puppetAgentBaseRev}" "${PUPPET_AGENT_URL}"
 
 repoRevMap=$(getComponentRevMap)
 [[ -z ${repoRevMap} ]] && { echo "Note: no repos with SHAs found."; }
@@ -157,25 +183,43 @@ repoRevMap=$(getComponentRevMap)
 repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
 
 versionsUsed=""
+ignored_repos="${IGNORE_FOR}"
+only_on="${ONLY_ON}"
 
 for currentItem in ${repoRevMap}; do
 	to_rev=$(echo -n ${currentItem} | cut -d'|' -f1)
 	repo_url=$(echo -n ${currentItem} | cut -d'|' -f2)
-	repo=$(basename ${repo_url} .git)
+	repo=$(parseRepoName ${repo_url})
+	foss_name=$(stripPrivateSuffix ${repo})
+
+	# If a non-empty value for ONLY_ON was passed-in, then we want to run
+	# ticketmatch only on those repos. This is equivalent to ignoring all
+	# repos that aren't a part of ONLY_ON.
+	if [[ ! -z "${only_on}" ]] && ! containsElement "${only_on}" "${foss_name}"; then
+		ignored_repos="${ignored_repos} ${foss_name}"
+	fi
+
+	# something like
+	#    [[ "${ignored_repos}" =~ ${foss_name} ]]
+	# will not work when $ignored_repos contains e.g. puppet-agent
+	# and $foss_name is puppet.
+	if containsElement "${ignored_repos}" "${foss_name}"; then
+		continue
+	fi
 
 	echo "<><><><><><><><><><>"
-	cloneOrFetch "${repo}" "${to_rev}" "${repo_url}"
+	cloneOrFetch "${to_rev}" "${repo_url}"
 	pushd ${repo}
 
 	  # get current version [from_rev]
 	  from_rev=$(git describe --abbrev=0 --tags) # | sed -e 's/^v//')
-	  fix_ver=$(getFixVerFor "${repo}")
-	  jiraProjectId=$(getJiraProjectIdFor "${repo}")
-	  jiraFixedInProject=$(getJiraFixedInFor "${repo}")
+	  fix_ver=$(getFixVerFor "${foss_name}")
+	  jiraProjectId=$(getJiraProjectIdFor "${foss_name}")
+	  jiraFixedInProject=$(getJiraFixedInFor "${foss_name}")
 
-	  versionsUsed="${versionsUsed}\n${repo}:${fix_ver}"
+	  versionsUsed="${versionsUsed}\n${foss_name}:${fix_ver}"
 
-	  echo "Checking: ${repo}"
+	  echo "Checking: ${foss_name}"
 	  echo "from_rev: $from_rev, to_rev: $to_rev, fix_ver: $fix_ver"
 	  ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" 2> /dev/null
 	  echo
@@ -183,5 +227,5 @@ for currentItem in ${repoRevMap}; do
 done
 
 echo "<><><><><><><><><><>"
-echo "Versions used for JIRA searches (repo:version)"
+echo "Versions used for JIRA searches (foss_repo:version)"
 printf "%b\n" ${versionsUsed}
