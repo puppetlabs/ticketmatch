@@ -227,5 +227,5 @@ for currentItem in ${repoRevMap}; do
 done
 
 echo "<><><><><><><><><><>"
-echo "Versions used for JIRA searches (repo:version)"
+echo "Versions used for JIRA searches (foss_repo:version)"
 printf "%b\n" ${versionsUsed}
