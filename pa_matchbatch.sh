@@ -154,7 +154,7 @@ cloneOrFetch() {
 	if [[ -d ${repoName} ]]; then
 		pushd ${repoName}
 		  echo "Note: fetch ${FETCH_REMOTE} for ${repoName}..."
-		  git fetch ${FETCH_REMOTE} --quiet
+		  git fetch ${FETCH_REMOTE} --tags --quiet
 		  git checkout --quiet ${targetRev}
 		popd
 	else
