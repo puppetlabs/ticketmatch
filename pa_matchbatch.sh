@@ -2,9 +2,21 @@
 set -e
 unset CDPATH
 
+# Arguments:
+# - REPO: Which repo is being released. `puppet-agent` or `puppet-agent-private`
+#         are the two primary options.
+# - WORKSPACE: Where the dependencies should be downloaded, e.g. `temp`.
+# - IGNORE_FOR: Which repos should be ignored (space-separated).
+# - OVERRIDE_PATH: A path to a txt file that will override versions.
+#
+# Deprecated arguments:
+# - PUPPET_AGENT_URL: This will still be read, but `REPO` is preferred.
+
 # where to find the agent
-puppet_agent_repo="git@github.com:puppetlabs/puppet-agent.git"
+REPO=${REPO:-puppet-agent}
+puppet_agent_repo="git@github.com:puppetlabs/${REPO}.git"
 PUPPET_AGENT_URL=${PUPPET_AGENT_URL:-${puppet_agent_repo}}
+PUPPET_AGENT_DIR=${PUPPET_AGENT_DIR:-${REPO}}
 
 # where to find the ticketmatch.rb script
 TICKETMATCH_PATH=${TICKETMATCH_PATH:-$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )}
@@ -52,9 +64,9 @@ containsElement() {
 
 # get rev hashes in the form [to_rev]|[url]
 getComponentRevMap() {
-	pushd puppet-agent
+	pushd ${PUPPET_AGENT_DIR}
 	  # looking for components not pinned to a 'refs/tags' element, and of those, filtering out (keeping) the ones owned by puppetlabs
-	  for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs ${componentFile}; done); do
+	  for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
 		  ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
 	  done
 	popd
@@ -178,6 +190,9 @@ cd ${baseDir}
 cloneOrFetch "${puppetAgentBaseRev}" "${PUPPET_AGENT_URL}"
 
 repoRevMap=$(getComponentRevMap)
+
+echo "starting with repoRevMap '${repoRevMap}'"
+
 [[ -z ${repoRevMap} ]] && { echo "Note: no repos with SHAs found."; }
 # add puppet-agent to the list of repos to check
 repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
@@ -185,6 +200,8 @@ repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
 versionsUsed=""
 ignored_repos="${IGNORE_FOR}"
 only_on="${ONLY_ON}"
+
+echo "operating on repoRevMap '${repoRevMap}'"
 
 for currentItem in ${repoRevMap}; do
 	to_rev=$(echo -n ${currentItem} | cut -d'|' -f1)

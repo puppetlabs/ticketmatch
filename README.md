@@ -110,8 +110,8 @@ invoke pa_matchbatch
 There are a few additional environment variables (see `WORKSPACE`, above) that control behavior. All
 variables have sensible defaults.
 
-`PUPPET_AGENT_URL` controls which Git repo to fetch the baseline puppet-agent from. It defaults to
-`git@github.com:puppetlabs/puppet-agent.git`.
+`REPO` controls which Git repo to fetch the baseline puppet-agent from. It defaults to
+`puppet-agent`.
 
 `TICKETMATCH_PATH` indicates where to find the `ticketmatch.rb` script. It defaults to the same
 directory as the `pa_matchbatch.sh` script.
