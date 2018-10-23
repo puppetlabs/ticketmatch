@@ -26,7 +26,7 @@ FETCH_REMOTE=${FETCH_REMOTE:-origin}
 
 # where version overrides are specified
 overridesFile="/tmp/version_overrides.txt"
-OVERRIDE_PATH=${OVERRIDE_PATH:-${overridesFile}}
+OVERRIDE_PATH=$(realpath ${OVERRIDE_PATH:-${overridesFile}})
 
 # shorthand
 pushd() {
