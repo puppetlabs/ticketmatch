@@ -163,6 +163,10 @@ class JiraTickets
     @tickets[ticket] = JiraState.new(state, in_git)
   end
 
+  def add_alias(ticket, an_alias)
+    @tickets[an_alias] = @tickets[ticket]
+  end
+
   def empty?
     @tickets.empty?
   end
@@ -307,7 +311,18 @@ end
 #
 git_commits.keys.sort.each do |ticket|
   if jira_tickets[ticket].nil?
-    puts "** #{ticket.upcase}"
+    begin
+      actual = JSON.parse(%x{curl -X GET -H 'Content-Type: application/json' https://tickets.puppetlabs.com/rest/api/2/issue/#{ticket}})
+      if actual.key?('key') && jira_tickets[actual['key']]
+        jira_tickets.add_alias(actual['key'], ticket)
+        puts "-- #{ticket.upcase} (#{jira_tickets[ticket].state}) [alias of #{actual['key']}]"
+      else
+        puts "** #{ticket.upcase}"
+      end
+    rescue
+      # Failed to look up the ticket.
+      puts "** #{ticket.upcase}"
+    end
   else
     puts "-- #{ticket.upcase} (#{jira_tickets[ticket].state})"
   end
