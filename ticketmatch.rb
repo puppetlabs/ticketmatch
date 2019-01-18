@@ -134,21 +134,30 @@ end
 
 # the basic state of a jira ticket
 #
-class JiraState
+class JiraTicket
   attr_accessor :in_git
-  attr_reader :state
+  attr_reader :state, :team, :key
 
-  def initialize(state, in_git=0)
+  def initialize(key, state, team, in_git=0)
+    @key    = key
     @state  = state
+    @team   = team
     @in_git = in_git # This is a count, if its its non-zero then something was still checked in for this ticket
+  end
+
+  def to_s
+    sprintf("%s\t%-22s %s", key, state, "(#{team || 'Unassigned'})")
   end
 end
 
 # A grouping of Jira tickets that apply for this matching session
 #
 class JiraTickets
+  attr_reader :unresolved
+
   def initialize
     @tickets = Hash.new
+    @unresolved = Array.new
   end
 
   def [](ticket)
@@ -159,8 +168,12 @@ class JiraTickets
     @tickets.keys
   end
 
-  def add_ticket(ticket, state, in_git=0)
-    @tickets[ticket] = JiraState.new(state, in_git)
+  def add_ticket(key, state, team, in_git=0)
+    ticket = JiraTicket.new(key, state, team, in_git)
+    @tickets[key] = ticket
+    unless state == 'Unresolved' || state == 'Closed'
+      @unresolved << ticket
+    end
   end
 
   def empty?
@@ -180,6 +193,7 @@ git_from_rev = nil
 git_to_rev = nil
 jira_project_name = nil
 jira_project_fixed_version = nil
+jira_team_name = nil
 interactive = true
 
 parser = OptionParser.new do |opts|
@@ -199,6 +213,10 @@ parser = OptionParser.new do |opts|
 
   opts.on('-v', '--version version_fixed_in', 'JIRA "fixed-in" version (in quotes for now, please)') do |fixed_version|
     jira_project_fixed_version = fixed_version;
+  end
+
+  opts.on('-m', '--team JIRA_team', 'JIRA team assigned tickets within JIRA project') do |team_name|
+    jira_team_name = team_name;
   end
 
   opts.on('-c', '--ci', 'continuous integration mode (no prompting)') do
@@ -274,21 +292,36 @@ if jira_project_fixed_version == nil
   end
 end
 
+if jira_team_name == nil
+  if interactive
+    jira_team_name = ask('(Optional) Enter JIRA team name: ')
+  end
+end
+
+jira_team_name = nil if jira_team_name == ""
+
+base_query = "project = #{jira_project_name}"
+if jira_team_name
+  query = "#{base_query} AND Team = \"#{jira_team_name}\""
+else
+  query = base_query
+end
+
 # get the list of tickets from the JIRA project that contain the fixed version
 jira_data = {
-    :jql        => "project = #{jira_project_name} AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
+    :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status']
+    :fields     => ['status', 'customfield_14200']
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
+
 begin
   jira_issues = JSON.parse(%x{curl -X POST -H 'Content-Type: application/json' --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
 end
-# puts JSON.pretty_unparse(jira_issues)
 
 if jira_issues['issues'].nil?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
@@ -296,7 +329,10 @@ if jira_issues['issues'].nil?
 end
 jira_tickets = JiraTickets.new
 jira_issues['issues'].each do |issue|
-  jira_tickets.add_ticket(issue['key'], issue['fields']['status']['name'], in_git=0)
+  jira_tickets.add_ticket(issue['key'],
+                          issue['fields']['status']['name'],
+                          issue.dig('fields', 'customfield_14200', 'value'),
+                          in_git=0)
 end
 if jira_tickets.empty?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
@@ -356,7 +392,12 @@ unknown_issues     = git_commits.keys.reject do |ticket|
   known_jira_tickets.include?(ticket) || ["MAINT", "DOC", "DOCS", "TRIVIAL", "PACKAGING", "UNMARKED"].include?(ticket)
 end
 if !unknown_issues.empty?
-  say("<%= color('COMMIT TOKENS NOT FOUND IN JIRA (OR NOT WITH FIX VERSION OF #{jira_project_fixed_version})', RED) %>")
+  disclaimer = "OR NOT WITH FIX VERSION OF #{jira_project_fixed_version}"
+  if jira_team_name
+    disclaimer += " AND A TEAM OF #{jira_team_name}"
+  end
+
+  say("<%= color('COMMIT TOKENS NOT FOUND IN JIRA (#{disclaimer})', RED) %>")
   unknown_issues.sort.each do |ticket|
     if ticket == 'REVERT'
       git_commits[ticket].each do |revert_ticket|
@@ -372,23 +413,23 @@ end
 
 puts
 puts '----- Unresolved Jira tickets not in git commits -----'
-unresolved            = known_jira_tickets.reject do |ticket|
-  jira_tickets[ticket].state == 'Resolved' || jira_tickets[ticket].state == 'Closed'
-end
-unresolved_not_in_git = unresolved.reject {|ticket| jira_tickets[ticket].in_git >= 1}
+unresolved_not_in_git, unresolved_in_git = jira_tickets.unresolved.partition {|ticket| ticket.in_git < 1}
 if !unresolved_not_in_git.empty?
   say("<%= color('UNRESOLVED ISSUES NOT FOUND IN GIT', RED) %>")
-  unresolved_not_in_git.each {|ticket| say("<%= color('#{ticket} #{jira_tickets[ticket].state}', RED) %>")}
+  unresolved_not_in_git.each do |ticket|
+    say("<%= color('#{ticket.to_s}', RED) %>")
+  end
 else
   say("<%= color('ALL ISSUES WERE FOUND IN GIT', GREEN) %>")
 end
 
 puts
 puts '----- Unresolved Jira tickets found in git commits -----'
-unresolved_in_git = unresolved.select {|ticket| jira_tickets[ticket].in_git >= 1}
 if !unresolved_in_git.empty?
   say("<%= color('UNRESOLVED ISSUES FOUND IN GIT', RED) %>")
-  unresolved_in_git.each {|ticket| say("<%= color('#{ticket} #{jira_tickets[ticket].state}', RED) %>")}
+  unresolved_in_git.each do |ticket|
+    say("<%= color('#{ticket.to_s}', RED) %>")
+  end
 else
   say("<%= color('ALL ISSUES WERE RESOLVED IN JIRA', GREEN) %>")
 end
