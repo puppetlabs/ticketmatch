@@ -136,12 +136,13 @@ end
 #
 class JiraTicket
   attr_accessor :in_git
-  attr_reader :state, :team, :key
+  attr_reader :state, :team, :release_notes, :rn_summary, :key
 
-  def initialize(key, state, team, in_git=0)
+  def initialize(key, state, team, release_notes, rn_summary, in_git=0)
     @key    = key
     @state  = state
     @team   = team
+    @release_notes = release_notes
     @in_git = in_git # This is a count, if its its non-zero then something was still checked in for this ticket
   end
 
@@ -153,11 +154,12 @@ end
 # A grouping of Jira tickets that apply for this matching session
 #
 class JiraTickets
-  attr_reader :unresolved
+  attr_reader :unresolved, :missing_release_notes
 
   def initialize
     @tickets = Hash.new
     @unresolved = Array.new
+    @missing_release_notes = Array.new
   end
 
   def [](ticket)
@@ -168,11 +170,14 @@ class JiraTickets
     @tickets.keys
   end
 
-  def add_ticket(key, state, team, in_git=0)
-    ticket = JiraTicket.new(key, state, team, in_git)
+  def add_ticket(key, state, team, release_notes, rn_summary, in_git=0)
+    ticket = JiraTicket.new(key, state, team, release_notes, rn_summary, in_git)
     @tickets[key] = ticket
     unless state == 'Unresolved' || state == 'Closed'
       @unresolved << ticket
+    end
+    if release_notes.nil? || (rn_summary.nil? && (release_notes != "Not Needed"))
+      @missing_release_notes << ticket
     end
   end
 
@@ -311,7 +316,7 @@ end
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status', 'customfield_14200']
+    :fields     => ['status', 'customfield_14200', 'customfield_11100', 'customfield_12100']
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
@@ -332,6 +337,8 @@ jira_issues['issues'].each do |issue|
   jira_tickets.add_ticket(issue['key'],
                           issue['fields']['status']['name'],
                           issue.dig('fields', 'customfield_14200', 'value'),
+                          issue.dig('fields', 'customfield_11100', 'value'),
+                          issue.dig('fields', 'customfield_12100'),
                           in_git=0)
 end
 if jira_tickets.empty?
@@ -432,6 +439,17 @@ if !unresolved_in_git.empty?
   end
 else
   say("<%= color('ALL ISSUES WERE RESOLVED IN JIRA', GREEN) %>")
+end
+
+puts
+puts '----- Tickets missing release notes -----'
+if !jira_tickets.missing_release_notes.empty?
+  say("<%= color('ISSUES MISSING RELEASE NOTES', RED) %>")
+  jira_tickets.missing_release_notes.each do |ticket|
+    say("<%= color('#{ticket.to_s}', RED) %>")
+  end
+else
+  say("<%= color('ALL ISSUES CONTAIN RELEASE NOTES', GREEN) %>")
 end
 
 exit 0
