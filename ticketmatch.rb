@@ -173,7 +173,7 @@ class JiraTickets
   def add_ticket(key, state, team, release_notes, rn_summary, in_git=0)
     ticket = JiraTicket.new(key, state, team, release_notes, rn_summary, in_git)
     @tickets[key] = ticket
-    unless state == 'Unresolved' || state == 'Closed'
+    unless state =~ /(Closed|Resolved)/
       @unresolved << ticket
     end
     if release_notes.nil? || (rn_summary.nil? && (release_notes != "Not Needed"))
