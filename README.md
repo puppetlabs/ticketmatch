@@ -75,37 +75,47 @@ Usage: ruby ticketmatch.rb [options]
     -h, --help                       this message
 ```
 
-# Batch processing
+# Batch processing for puppet-agent and its components
 
-If you need to check all the components that comprise `puppet-agent` for a release, use
-`pa_matchbatch.sh`. It requires one argument: the revision (SHA or reference) of `puppet-agent` you
-care about. It will process `puppet-agent` and all its components that are tagged with a SHA.
 
-Component directories will be cloned from the path provided in their `component.json` file and the
-appropriate branch set. If a given component already exists, a Git fetch will be performed to get
-things up to date (see environment variables, below, for additional options).
+The `pa_matchbatch.sh` script clones a revision of puppet-agent and all of its components, then runs
+ticketmatch on everything; This is intended for use during puppet-agent releases.
 
-## How to run pa_matchbatch (one way)
+### How to run pa_matchbatch
 
-set your working directory to someplace (cannot be `puppet-agent`; can be its parent or empty)
+*`pa_matchbatch.sh` requires one argument,* A puppet-agent git reference (a branch name, a SHA, or
+a tag). For example, to run ticketmatch on puppet-agent's master branch and all of its components:
 
-```cd <a_directory>```
+```sh
+./pa_matchbatch.sh <branch-name>
+```
 
-invoke pa_matchbatch
+*`pa_matchbatch.sh` clones puppet-agent and its components to the current working directory by default.*
+You can override the target directory by setting the `$WORKSPACE` environment variable to some other
+directory. You can run `pa_matchbatch.sh` any number of times on the same workspace; The repos will
+be fetched each time to check for new updates.
 
-```path/pa_matchbatch.sh <the_revision>```
+*`pa_matchbatch.sh` assumes that only the Z versions of puppet-agent and its components will change
+during a release.* You will need to override this assumption for:
 
-## How to run pa_matchbatch (another way)
+- Any update to an X or Y version number, or
+- Any circumstance where the reported version number is incorrect for some reason (a bad mergeup, for example)
 
-point the WORKSPACE environment variable to a directory (ditto)
+To override the assumed version numbers for some or all components, create a text file with one
+`<component-name>:<version>` entry on each line. For example, this would override the assumed
+versions of puppet, puppet-agent, facter, the resource API, and pxp-agent:
 
-```export WORKSPACE="fully_qualified_path_to_a_dir"```
+```
+puppet:6.3.0
+puppet-agent:6.3.0
+facter:3.13.0
+puppet-resource_api:3.0.0
+pxp-agent:1.11.0
+```
 
-invoke pa_matchbatch
+Specify the path to this file in **`$OVERRIDE_PATH`** while running pa_matchbatch.sh.
 
-```path/pa_matchbatch.sh <the_revision>```
-
-## Other environment variables of interest
+### Other environment variables of interest
 
 There are a few additional environment variables (see `WORKSPACE`, above) that control behavior. All
 variables have sensible defaults.
@@ -131,25 +141,6 @@ facter and pxp-agent. It defaults to empty.
 all other repos. For example, ONLY_ON="puppet-agent facter" will run ticketmatch only on puppet-agent and
 facter. It defaults to processing all of the repos. Note that if a repo is in both ONLY_ON and IGNORE_REPOS,
 then pa_matchbatch.sh will not process it.
-
-## Overriding the JIRA 'fixed in' version
-
-In certain rare circumstances, typically merge-ups, it's possible for an earlier version number to
-be chronologically later than a later version number. This results in the wrong version being
-picked up as the JIRA 'fixed in' version of interest. It is possible to override this automatic
-version selection on a component-by-component basis. Do the following:
-
-create the override file
-
-```touch /tmp/version_overrides.txt```
-
-for each component that needs an override, put in a line that specifies the component and desired
-version override
-
-```facter:1.2.3```
-
-There can be as many unique components lines as you like. The presence or absence of the file
-controls if things are overridden or not.
 
 # How to read the output
 
@@ -205,4 +196,5 @@ section will print a state for the section.
 ----- Git commits in Jira -----
 ----- Unresolved Jira tickets not in git commits -----
 ----- Unresolved Jira tickets found in git commits -----
+----- Tickets missing release notes -----
 ```
