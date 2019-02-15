@@ -73,17 +73,58 @@ getComponentRevMap() {
 	popd
 }
 
-# TODO: more robust version matches?
-# if version file present, use it, otherwise calculate
-# only override versions you care about
-# repo:fix_version, 1 per line
+# Find the fixVersion for a project in this release
 #
+# - If an overrides file was supplied, use the version number from that file
+# - Otherwise look for common version files
+# - Otherwise try to find the most recent version update in the git log
 getFixVerFor() {
-	if [[ -f  ${OVERRIDE_PATH} ]]; then
-		override=$(grep ${1}  ${OVERRIDE_PATH} | cut -d: -f2)
-		[[ -n ${override} ]] && { echo ${override}; return; }
+    # If an overrides file was supplied, look at it for a version number first
+	if [[ -f ${OVERRIDE_PATH} ]]; then
+		override=$(grep "${1}:"  ${OVERRIDE_PATH} | cut -d: -f2)
+		if [[ -n ${override} ]]; then
+		    echo ${override}
+		    return
+		fi
 	fi
 
+    # puppet-agent has a ./VERSION file that contains only the version number
+	if [[ -f VERSION ]]; then
+        version=$(echo $(cat VERSION | sed -e 's/\s+//'))
+        if [[ -n ${version} ]]; then
+            echo ${version}
+            return
+        fi
+	fi
+
+    # Ruby components have a version.rb in various places
+    componentName="$(basename ${PWD})"
+    if [[ $componentName = "puppet-resource_api" ]]; then
+        # The resource api has a './lib/puppet/resource_api/version.rb' which contains a `VERSION = <version>` line
+        versionFile="./lib/puppet/resource_api/version.rb"
+    else
+        # puppet has a './lib/puppet/version.rb' which contains a `PUPPETVERSION = <version>` line
+        # hiera has a './lib/hiera/version.rb' which contains a `VERSION = <version>` line
+        versionFile="./lib/${componentName}/version.rb"
+    fi
+	if [[ -f ${versionFile} ]]; then
+        version=$(cat ${versionFile} | sed -nr "s/.*VERSION\s*=\s*(\"|')(.+)(\"|').*/\2/p")
+        if [[ -n ${version} ]]; then
+            echo ${version}
+            return
+        fi
+    fi
+
+    # C++ components have a version in CMakeLists.txt with a line like `project(pxp-agent VERSION <version>)`
+    if [[ -f CMakeLists.txt ]]; then
+        version=$(cat CMakeLists.txt | sed -nr "s/project\(.*VERSION\s*(.+)\)/\1/p")
+        if [[ -n ${version} ]]; then
+            echo ${version}
+            return
+        fi
+    fi
+
+    # Otherwise, attempt to find a version update in the git log for the component
 	case ${1} in
 		puppet-resource_api)
 			git log -1 --no-merges --oneline --grep='Release prep' | sed -e "s/.*prep for v\(.*$\)/\1/"
