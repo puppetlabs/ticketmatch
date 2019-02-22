@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
+# vi: set noexpandtab:
 set -e
 unset CDPATH
 
+# See README.md for arguments and available environment variables.
+
 # where to find the agent
-puppet_agent_repo="git@github.com:puppetlabs/puppet-agent.git"
+REPO=${REPO:-puppet-agent}
+puppet_agent_repo="git@github.com:puppetlabs/${REPO}.git"
 PUPPET_AGENT_URL=${PUPPET_AGENT_URL:-${puppet_agent_repo}}
+PUPPET_AGENT_DIR=${PUPPET_AGENT_DIR:-${REPO}}
 
 # where to find the ticketmatch.rb script
 TICKETMATCH_PATH=${TICKETMATCH_PATH:-$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )}
@@ -14,7 +19,16 @@ FETCH_REMOTE=${FETCH_REMOTE:-origin}
 
 # where version overrides are specified
 overridesFile="/tmp/version_overrides.txt"
-OVERRIDE_PATH=${OVERRIDE_PATH:-${overridesFile}}
+OVERRIDE_PATH=$(realpath ${OVERRIDE_PATH:-${overridesFile}})
+
+echo_bold () {
+    echo "$(tput bold)${1}$(tput sgr0)"
+}
+
+print_divider () {
+    echo '<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>'
+    echo
+}
 
 # shorthand
 pushd() {
@@ -42,9 +56,9 @@ containsElement() {
 	local element="${2}"
 
 	for e in ${array}; do
-	  if [[ "${e}" == "${element}" ]]; then
-	    return 0
-	  fi
+		if [[ "${e}" == "${element}" ]]; then
+			return 0
+		fi
 	done
 
 	return 1
@@ -52,25 +66,66 @@ containsElement() {
 
 # get rev hashes in the form [to_rev]|[url]
 getComponentRevMap() {
-	pushd puppet-agent
-	  # looking for components not pinned to a 'refs/tags' element, and of those, filtering out (keeping) the ones owned by puppetlabs
-	  for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs ${componentFile}; done); do
-		  ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
-	  done
+	pushd ${PUPPET_AGENT_DIR}
+		# looking for components not pinned to a 'refs/tags' element, and of those, filtering out (keeping) the ones owned by puppetlabs
+		for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
+			ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
+		done
 	popd
 }
 
-# TODO: more robust version matches?
-# if version file present, use it, otherwise calculate
-# only override versions you care about
-# repo:fix_version, 1 per line
+# Find the fixVersion for a project in this release
 #
+# - If an overrides file was supplied, use the version number from that file
+# - Otherwise look for common version files
+# - Otherwise try to find the most recent version update in the git log
 getFixVerFor() {
-	if [[ -f  ${OVERRIDE_PATH} ]]; then
-		override=$(grep ${1}  ${OVERRIDE_PATH} | cut -d: -f2)
-		[[ -n ${override} ]] && { echo ${override}; return; }
+	# If an overrides file was supplied, look at it for a version number first
+	if [[ -f ${OVERRIDE_PATH} ]]; then
+		override=$(grep "${1}:"  ${OVERRIDE_PATH} | cut -d: -f2)
+		if [[ -n ${override} ]]; then
+			echo ${override}
+			return
+		fi
 	fi
 
+	# puppet-agent has a ./VERSION file that contains only the version number
+	if [[ -f VERSION ]]; then
+		version=$(echo $(cat VERSION | sed -e 's/\s+//'))
+		if [[ -n ${version} ]]; then
+			echo ${version}
+			return
+		fi
+	fi
+
+	# Ruby components have a version.rb in various places
+	componentName="$(basename ${PWD})"
+	if [[ $componentName = "puppet-resource_api" ]]; then
+		# The resource api has a './lib/puppet/resource_api/version.rb' which contains a `VERSION = <version>` line
+		versionFile="./lib/puppet/resource_api/version.rb"
+	else
+		# puppet has a './lib/puppet/version.rb' which contains a `PUPPETVERSION = <version>` line
+		# hiera has a './lib/hiera/version.rb' which contains a `VERSION = <version>` line
+		versionFile="./lib/${componentName}/version.rb"
+	fi
+	if [[ -f ${versionFile} ]]; then
+		version=$(cat ${versionFile} | sed -nr "s/.*VERSION\s*=\s*(\"|')(.+)(\"|').*/\2/p")
+		if [[ -n ${version} ]]; then
+			echo ${version}
+			return
+		fi
+	fi
+
+	# C++ components have a version in CMakeLists.txt with a line like `project(pxp-agent VERSION <version>)`
+	if [[ -f CMakeLists.txt ]]; then
+		version=$(cat CMakeLists.txt | sed -nr "s/project\(.*VERSION\s*(.+)\)/\1/p")
+		if [[ -n ${version} ]]; then
+			echo ${version}
+			return
+		fi
+	fi
+
+	# Otherwise, attempt to find a version update in the git log for the component
 	case ${1} in
 		puppet-resource_api)
 			git log -1 --no-merges --oneline --grep='Release prep' | sed -e "s/.*prep for v\(.*$\)/\1/"
@@ -133,7 +188,7 @@ getJiraFixedInFor() {
 		;;
 		marionette-collective) echo MCO
 		;;
-		puppet-resource_api) echo PDK
+		puppet-resource_api) echo RSAPI
 		;;
 		cpp-hocon) echo HC
 		;;
@@ -153,15 +208,16 @@ cloneOrFetch() {
 
 	if [[ -d ${repoName} ]]; then
 		pushd ${repoName}
-		  echo "Note: fetch ${FETCH_REMOTE} for ${repoName}..."
-		  git fetch ${FETCH_REMOTE} --tags --quiet
-		  git checkout --quiet ${targetRev}
+			echo "Fetching ${FETCH_REMOTE} for ${repoName}..."
+      git fetch ${FETCH_REMOTE} --tags --quiet
+			git checkout --quiet ${targetRev}
 		popd
 	else
-		echo "Note: cloning ${repoName}..."
+		echo "Cloning ${repoName}..."
+		echo
 		git clone --quiet ${url}
 		pushd ${repoName}
-		  git checkout --quiet ${targetRev}
+			git checkout --quiet ${targetRev}
 		popd
 	fi
 }
@@ -178,6 +234,9 @@ cd ${baseDir}
 cloneOrFetch "${puppetAgentBaseRev}" "${PUPPET_AGENT_URL}"
 
 repoRevMap=$(getComponentRevMap)
+
+echo "starting with repoRevMap '${repoRevMap}'"
+
 [[ -z ${repoRevMap} ]] && { echo "Note: no repos with SHAs found."; }
 # add puppet-agent to the list of repos to check
 repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
@@ -186,46 +245,56 @@ versionsUsed=""
 ignored_repos="${IGNORE_FOR}"
 only_on="${ONLY_ON}"
 
+echo "operating on repoRevMap '${repoRevMap}'"
+
 for currentItem in ${repoRevMap}; do
 	to_rev=$(echo -n ${currentItem} | cut -d'|' -f1)
 	repo_url=$(echo -n ${currentItem} | cut -d'|' -f2)
 	repo=$(parseRepoName ${repo_url})
-	foss_name=$(stripPrivateSuffix ${repo})
+	public_name=$(stripPrivateSuffix ${repo})
 
-	# If a non-empty value for ONLY_ON was passed-in, then we want to run
+	# If a non-empty value for ONLY_ON was passed in, then we want to run
 	# ticketmatch only on those repos. This is equivalent to ignoring all
 	# repos that aren't a part of ONLY_ON.
-	if [[ ! -z "${only_on}" ]] && ! containsElement "${only_on}" "${foss_name}"; then
-		ignored_repos="${ignored_repos} ${foss_name}"
+	if [[ ! -z "${only_on}" ]] && ! containsElement "${only_on}" "${public_name}"; then
+		ignored_repos="${ignored_repos} ${public_name}"
 	fi
 
 	# something like
-	#    [[ "${ignored_repos}" =~ ${foss_name} ]]
+	#    [[ "${ignored_repos}" =~ ${public_name} ]]
 	# will not work when $ignored_repos contains e.g. puppet-agent
-	# and $foss_name is puppet.
-	if containsElement "${ignored_repos}" "${foss_name}"; then
+	# and $public_name is puppet.
+	if containsElement "${ignored_repos}" "${public_name}"; then
 		continue
 	fi
 
-	echo "<><><><><><><><><><>"
+	print_divider
+
 	cloneOrFetch "${to_rev}" "${repo_url}"
+
 	pushd ${repo}
+		# get current version [from_rev]
+		from_rev=$(git describe --abbrev=0 --tags) # | sed -e 's/^v//')
+		fix_ver=$(getFixVerFor "${public_name}")
+		jiraProjectId=$(getJiraProjectIdFor "${public_name}")
+		jiraFixedInProject=$(getJiraFixedInFor "${public_name}")
 
-	  # get current version [from_rev]
-	  from_rev=$(git describe --abbrev=0 --tags) # | sed -e 's/^v//')
-	  fix_ver=$(getFixVerFor "${foss_name}")
-	  jiraProjectId=$(getJiraProjectIdFor "${foss_name}")
-	  jiraFixedInProject=$(getJiraFixedInFor "${foss_name}")
+		versionsUsed="${versionsUsed}\n${public_name}:${fix_ver}"
 
-	  versionsUsed="${versionsUsed}\n${foss_name}:${fix_ver}"
-
-	  echo "Checking: ${foss_name}"
-	  echo "from_rev: $from_rev, to_rev: $to_rev, fix_ver: $fix_ver"
-	  ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" 2> /dev/null
-	  echo
+		echo_bold "Ticketmatch results for $public_name"
+		echo "(From tag '$from_rev' to ref '$to_rev' - JIRA fixVersion is '$(getJiraFixedInFor $public_name) $fix_ver')"
+		echo
+		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" 2> /dev/null | sed 's/^/\t/g'
+		echo
+		echo "Checking: ${foss_name}"
+		echo "from_rev: $from_rev, to_rev: $to_rev, fix_ver: $fix_ver"
+		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" 2> /dev/null
+		echo
 	popd
 done
 
-echo "<><><><><><><><><><>"
-echo "Versions used for JIRA searches (foss_repo:version)"
-printf "%b\n" ${versionsUsed}
+print_divider
+
+echo "The following versions were used for JIRA searches (repo_name:version)"
+echo_bold "If these versions are incorrect, you should create a version overrides file and try again. See the README."
+printf "%b\n\n" ${versionsUsed}
