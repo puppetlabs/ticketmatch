@@ -136,14 +136,20 @@ end
 #
 class JiraTicket
   attr_accessor :in_git
-  attr_reader :state, :team, :release_notes, :rn_summary, :key
+  attr_reader :key, :state, :team, :release_notes, :rn_summary, :type
 
-  def initialize(key, state, team, release_notes, rn_summary, in_git=0)
-    @key    = key
-    @state  = state
-    @team   = team
-    @release_notes = release_notes
-    @in_git = in_git # This is a count, if its its non-zero then something was still checked in for this ticket
+  def initialize(args)
+    @key    = args[:key]
+    @state  = args[:state]
+    @team   = args[:team]
+    @release_notes = args[:release_notes]
+    @rn_summary = args[:rn_summary]
+    @in_git = args[:in_git] # This is a count, if its non-zero then something was still checked in for this ticket
+    @type   = args[:type]
+  end
+
+  def bug?
+    type == 'Bug'
   end
 
   def to_s
@@ -170,14 +176,12 @@ class JiraTickets
     @tickets.keys
   end
 
-  def add_ticket(key, state, team, release_notes, rn_summary, in_git=0)
-    ticket = JiraTicket.new(key, state, team, release_notes, rn_summary, in_git)
-    @tickets[key] = ticket
-    unless state =~ /(Closed|Resolved)/
-      @unresolved << ticket
-    end
-    if release_notes.nil? || (rn_summary.nil? && (release_notes != "Not Needed"))
-      @missing_release_notes << ticket
+  def add_ticket(ticket)
+    @tickets[ticket.key] = ticket
+    unresolved << ticket unless ticket.state =~ /(Closed|Resolved)/
+    return if ticket.bug?
+    if ticket.release_notes.nil? || (ticket.rn_summary.nil? && (ticket.release_notes != "Not Needed"))
+      missing_release_notes << ticket
     end
   end
 
@@ -316,7 +320,7 @@ end
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status', 'customfield_14200', 'customfield_11100', 'customfield_12100']
+    :fields     => ['status', 'customfield_14200', 'customfield_11100', 'customfield_12100', 'issuetype']
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
@@ -334,12 +338,16 @@ if jira_issues['issues'].nil?
 end
 jira_tickets = JiraTickets.new
 jira_issues['issues'].each do |issue|
-  jira_tickets.add_ticket(issue['key'],
-                          issue['fields']['status']['name'],
-                          issue.dig('fields', 'customfield_14200', 'value'),
-                          issue.dig('fields', 'customfield_11100', 'value'),
-                          issue.dig('fields', 'customfield_12100'),
-                          in_git=0)
+  new_ticket = JiraTicket.new({
+    key:           issue['key'],
+    state:         issue.dig('fields', 'status', 'name'),
+    team:          issue.dig('fields', 'customfield_14200', 'value'),
+    release_notes: issue.dig('fields', 'customfield_11100', 'value'),
+    rn_summary:    issue.dig('fields', 'customfield_12100'),
+    in_git:        0,
+    type:          issue.dig('fields', 'issuetype', 'name')
+  })
+  jira_tickets.add_ticket(new_ticket)
 end
 if jira_tickets.empty?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
