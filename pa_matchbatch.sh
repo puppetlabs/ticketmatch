@@ -162,6 +162,8 @@ getJiraProjectIdFor() {
 		;;
 		nssm) echo PA  # this is on purpose
 		;;
+		puppet-runtime) echo PA
+		;;
 		*) (>&2 echo "Error: need to add JIRA project mapping for '${1}'.")
 			exit 1
 		;;
@@ -192,6 +194,8 @@ getJiraFixedInFor() {
 		;;
 		cpp-hocon) echo HC
 		;;
+		puppet-runtime) echo puppet-agent
+		;;
 		nssm) echo puppet-agent  # this is on purpose
 		;;
 		*) (>&2 echo "Error: need to add JIRA fixed-in version mapping for '${1}'.")
@@ -208,7 +212,7 @@ cloneOrFetch() {
 
 	if [[ -d ${repoName} ]]; then
 		pushd ${repoName}
-			echo "Fetching ${FETCH_REMOTE} for ${repoName}..."
+			echo "Fetching ${FETCH_REMOTE} for ${repoName} rev ${targetRev}..."
       git fetch ${FETCH_REMOTE} --tags --quiet
 			git checkout --quiet ${targetRev}
 		popd
@@ -222,6 +226,27 @@ cloneOrFetch() {
 	fi
 }
 
+readRuntimeVersion() {
+    echo `grep -Eo '"version":.*?[^\\]"' configs/components/puppet-runtime.json | awk -F ':' '{print $2}'` | tr -d '"'
+}
+
+# get puppet-runtime version from the last release
+getOldRuntimeRev() {
+    latest_tag=$(git describe --abbrev=0 --tags)
+    git checkout --quiet ${latest_tag}
+    echo $(readRuntimeVersion)
+    git checkout --quiet -
+}
+
+getAgentVersion() {
+    if [[ -f VERSION ]]; then
+        version=$(echo $(cat VERSION | sed -e 's/\s+//'))
+        if [[ -n ${version} ]]; then
+            echo ${version}
+        fi
+    fi
+}
+
 # main
 puppetAgentBaseRev=${1}
 [[ -z ${puppetAgentBaseRev} ]] && { echo "Error: must specify the puppet-agent revision to start from."; exit 1; }
@@ -233,13 +258,24 @@ cd ${baseDir}
 # get desired revision of puppet-agent in place
 cloneOrFetch "${puppetAgentBaseRev}" "${PUPPET_AGENT_URL}"
 
+agent_repo=$(parseRepoName ${PUPPET_AGENT_URL})
+pushd ${agent_repo}
+    agentVersion=$(getAgentVersion)
+    oldRuntimeVersion=$(getOldRuntimeRev)
+    newRuntimeVersion=$(readRuntimeVersion)
+popd
+
 repoRevMap=$(getComponentRevMap)
 
 echo "starting with repoRevMap '${repoRevMap}'"
 
 [[ -z ${repoRevMap} ]] && { echo "Note: no repos with SHAs found."; }
+
 # add puppet-agent to the list of repos to check
 repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
+
+# add puppet-runtime to the list
+repoRevMap="$newRuntimeVersion|git@github.com:puppetlabs/puppet-runtime.git ${repoRevMap}"
 
 versionsUsed=""
 ignored_repos="${IGNORE_FOR}"
@@ -279,7 +315,13 @@ for currentItem in ${repoRevMap}; do
 		jiraProjectId=$(getJiraProjectIdFor "${public_name}")
 		jiraFixedInProject=$(getJiraFixedInFor "${public_name}")
 
-		versionsUsed="${versionsUsed}\n${public_name}:${fix_ver}"
+        	if [[ $public_name = "puppet-runtime" ]]; then
+           		from_rev=${oldRuntimeVersion}
+           		fix_ver=${agentVersion}
+           		versionsUsed="${versionsUsed}\n${public_name}:${to_rev}"
+        	else
+           		versionsUsed="${versionsUsed}\n${public_name}:${fix_ver}"
+        	fi
 
 		echo_bold "Ticketmatch results for $public_name"
 		echo "(From tag '$from_rev' to ref '$to_rev' - JIRA fixVersion is '$(getJiraFixedInFor $public_name) $fix_ver')"
