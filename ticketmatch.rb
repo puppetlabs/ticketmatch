@@ -235,7 +235,6 @@ parser = OptionParser.new do |opts|
 end
 
 parser.parse!
-
 # check if we are in a git tree or not
 #
 in_repo = %x{git rev-parse --is-inside-work-tree 2>/dev/null}
@@ -411,7 +410,7 @@ if !unknown_issues.empty?
         say("<%= color('REVERT #{revert_ticket.hash}', RED) %>")
       end
     else
-      say("<%= color('#{ticket}', RED) %>")
+      say("<%= color(%Q[#{ticket}], RED) %>")
     end
   end
 else
@@ -424,7 +423,7 @@ unresolved_not_in_git, unresolved_in_git = jira_tickets.unresolved.partition {|t
 if !unresolved_not_in_git.empty?
   say("<%= color('UNRESOLVED ISSUES NOT FOUND IN GIT', RED) %>")
   unresolved_not_in_git.each do |ticket|
-    say("<%= color('#{ticket.to_s}', RED) %>")
+    say("<%= color(%Q[#{ticket}], RED) %>")
   end
 else
   say("<%= color('ALL ISSUES WERE FOUND IN GIT', GREEN) %>")
@@ -435,7 +434,7 @@ puts '----- Unresolved Jira tickets found in git commits -----'
 if !unresolved_in_git.empty?
   say("<%= color('UNRESOLVED ISSUES FOUND IN GIT', RED) %>")
   unresolved_in_git.each do |ticket|
-    say("<%= color('#{ticket.to_s}', RED) %>")
+    say("<%= color(%Q[#{ticket}], RED) %>")
   end
 else
   say("<%= color('ALL ISSUES WERE RESOLVED IN JIRA', GREEN) %>")
@@ -446,7 +445,7 @@ puts '----- Tickets missing release notes -----'
 if !jira_tickets.missing_release_notes.empty?
   say("<%= color('ISSUES MISSING RELEASE NOTES', RED) %>")
   jira_tickets.missing_release_notes.each do |ticket|
-    say("<%= color('#{ticket.to_s}', RED) %>")
+    say("<%= color(%Q[#{ticket}], RED) %>")
   end
 else
   say("<%= color('ALL ISSUES CONTAIN RELEASE NOTES', GREEN) %>")
