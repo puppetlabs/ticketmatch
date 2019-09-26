@@ -126,14 +126,7 @@ getFixVerFor() {
 	fi
 
 	# Otherwise, attempt to find a version update in the git log for the component
-	case ${1} in
-		puppet-resource_api)
-			git log -1 --no-merges --oneline --grep='Release prep' | sed -e "s/.*prep for v\(.*$\)/\1/"
-		;;
-		*)
-			git log -1 --no-merges --oneline -E --grep='\(packaging\) Bump to version .*' | sed -Ee "s/^.*version '?(([0-9]+\.)*[0-9]+).*/\1/"
-		;;
-	esac
+	git log -1 --no-merges --oneline -E --grep='\(packaging\) Bump to version .*' | sed -Ee "s/^.*version '?(([0-9]+\.)*[0-9]+).*/\1/"
 }
 
 getJiraProjectIdFor() {
