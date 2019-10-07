@@ -109,7 +109,7 @@ getFixVerFor() {
 		versionFile="./lib/${componentName}/version.rb"
 	fi
 	if [[ -f ${versionFile} ]]; then
-		version=$(cat ${versionFile} | sed -nr "s/.*VERSION\s*=\s*(\"|')(.+)(\"|').*/\2/p")
+		version=$(cat ${versionFile} | sed -nE "s/.*VERSION\s*=\s*(\"|')(.+)(\"|').*/\2/p")
 		if [[ -n ${version} ]]; then
 			echo ${version}
 			return
@@ -118,7 +118,7 @@ getFixVerFor() {
 
 	# C++ components have a version in CMakeLists.txt with a line like `project(pxp-agent VERSION <version>)`
 	if [[ -f CMakeLists.txt ]]; then
-		version=$(cat CMakeLists.txt | sed -nr "s/project\(.*VERSION\s*(.+)\)/\1/p")
+		version=$(cat CMakeLists.txt | sed -nE "s/project\(.*VERSION\s*(.+)\)/\1/p")
 		if [[ -n ${version} ]]; then
 			echo ${version}
 			return
