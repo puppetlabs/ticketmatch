@@ -17,6 +17,7 @@ the following:
 * The Jira project name (example PUP)
 * The Jira fix version to look for (example "PUP 4.10.5")
 
+
 # How to run ticketmatch
 
 ```$ cd <git_project_directory>  ```
@@ -79,7 +80,8 @@ Usage: ruby ticketmatch.rb [options]
 
 
 The `pa_matchbatch.sh` script clones a revision of puppet-agent and all of its components, then runs
-ticketmatch on everything; This is intended for use during puppet-agent releases.
+ticketmatch on everything; This is intended for use during puppet-agent releases. NOTE: the script might not work as inteded on OSX due to the
+fact that sed on OSX is different than sed on linux.
 
 ### How to run pa_matchbatch
 
