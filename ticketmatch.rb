@@ -329,6 +329,7 @@ end
 
 if jira_issues['issues'].nil?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
+  say("<%= color(%Q[#{jira_issues['errorMessages'].join}], RED) %>") if jira_issues['errorMessages']
   exit 0
 end
 jira_tickets = JiraTickets.new
