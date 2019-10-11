@@ -321,7 +321,7 @@ jira_data = {
 jira_post_data = JSON.fast_generate(jira_data)
 
 begin
-  jira_issues = JSON.parse(%x{curl -X POST -H 'Content-Type: application/json' --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
+  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
