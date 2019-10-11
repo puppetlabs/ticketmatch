@@ -321,7 +321,7 @@ jira_data = {
 jira_post_data = JSON.fast_generate(jira_data)
 
 begin
-  jira_issues = JSON.parse(%x{curl -X POST -H 'Content-Type: application/json' --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
+  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
@@ -329,6 +329,7 @@ end
 
 if jira_issues['issues'].nil?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
+  say("<%= color(%Q[#{jira_issues['errorMessages'].join}], RED) %>") if jira_issues['errorMessages']
   exit 0
 end
 jira_tickets = JiraTickets.new
