@@ -109,7 +109,7 @@ getFixVerFor() {
 		versionFile="./lib/${componentName}/version.rb"
 	fi
 	if [[ -f ${versionFile} ]]; then
-		version=$(cat ${versionFile} | gsed -nE "s/.*VERSION\s*=\s*(\"|')(.+)(\"|').*/\2/p")
+		version=$(cat ${versionFile} | sed -nE "s/.*VERSION\s*=\s*(\"|')(.+)(\"|').*/\2/p")
 		if [[ -n ${version} ]]; then
 			echo ${version}
 			return
