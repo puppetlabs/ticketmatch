@@ -133,6 +133,8 @@ getJiraProjectIdFor() {
 	case "${1}" in
 		facter) echo FACT
 		;;
+		facter-ng) echo FACT
+		;;
 		hiera) echo HI
 		;;
 		leatherman) echo LTH
@@ -166,6 +168,8 @@ getJiraProjectIdFor() {
 getJiraFixedInFor() {
 	case "${1}" in
 		facter) echo FACT
+		;;
+		facter-ng) echo FACT
 		;;
 		hiera) echo HI
 		;;
