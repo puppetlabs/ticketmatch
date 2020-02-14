@@ -304,12 +304,7 @@ end
 
 jira_team_name = nil if jira_team_name == ""
 
-base_query = "project = #{jira_project_name}"
-if jira_team_name
-  query = "#{base_query} AND Team = \"#{jira_team_name}\""
-else
-  query = base_query
-end
+query = "project = #{jira_project_name}"
 
 # get the list of tickets from the JIRA project that contain the fixed version
 jira_data = {
@@ -372,7 +367,7 @@ end
 # if the number is non-zero then this ticket had a code change
 #
 git_commits.keys.each do |ticket|
-  # if we have not jira ticket for this one move on
+  # if we have no jira ticket for this one, move on
   next if jira_tickets[ticket].nil?
   git_commits[ticket].each do |git_entry|
     # if this git_entry has a parent revert_ticket, let that one do the counting
@@ -399,12 +394,7 @@ unknown_issues     = git_commits.keys.reject do |ticket|
   known_jira_tickets.include?(ticket) || ["MAINT", "DOC", "DOCS", "TRIVIAL", "PACKAGING", "UNMARKED"].include?(ticket)
 end
 if !unknown_issues.empty?
-  disclaimer = "OR NOT WITH FIX VERSION OF #{jira_project_fixed_version}"
-  if jira_team_name
-    disclaimer += " AND A TEAM OF #{jira_team_name}"
-  end
-
-  say("<%= color('COMMIT TOKENS NOT FOUND IN JIRA (#{disclaimer})', RED) %>")
+  say("<%= color('COMMIT TOKENS NOT FOUND IN JIRA (OR NOT WITH FIX VERSION OF #{jira_project_fixed_version})', RED) %>")
   unknown_issues.sort.each do |ticket|
     if ticket == 'REVERT'
       git_commits[ticket].each do |revert_ticket|
@@ -420,7 +410,13 @@ end
 
 puts
 puts '----- Unresolved Jira tickets not in git commits -----'
-unresolved_not_in_git, unresolved_in_git = jira_tickets.unresolved.partition {|ticket| ticket.in_git < 1}
+unresolved_tickets = jira_tickets.unresolved
+if jira_team_name
+  unresolved_tickets.reject! do |ticket|
+    ticket.team != jira_team_name
+  end
+end
+unresolved_not_in_git, unresolved_in_git = unresolved_tickets.partition {|ticket| ticket.in_git < 1}
 if !unresolved_not_in_git.empty?
   say("<%= color('UNRESOLVED ISSUES NOT FOUND IN GIT', RED) %>")
   unresolved_not_in_git.each do |ticket|
@@ -443,9 +439,15 @@ end
 
 puts
 puts '----- Tickets missing release notes -----'
-if !jira_tickets.missing_release_notes.empty?
+tickets_missing_release_notes = jira_tickets.missing_release_notes
+if jira_team_name
+  tickets_missing_release_notes.reject! do |ticket|
+    ticket.team != jira_team_name
+  end
+end
+if !tickets_missing_release_notes.empty?
   say("<%= color('ISSUES MISSING RELEASE NOTES', RED) %>")
-  jira_tickets.missing_release_notes.each do |ticket|
+  tickets_missing_release_notes.each do |ticket|
     say("<%= color(%Q[#{ticket}], RED) %>")
   end
 else

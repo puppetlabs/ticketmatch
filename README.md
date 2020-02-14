@@ -72,6 +72,7 @@ Usage: ruby ticketmatch.rb [options]
     -t, --to to_rev                  to git revision
     -p, --project JIRA_project       JIRA project ID
     -v, --version version_fixed_in   JIRA "fixed-in" version (in quotes for now, please)
+    -m, --team JIRA_team             JIRA team assigned tickets within JIRA project
     -c, --ci                         continuous integration mode (no prompting)
     -h, --help                       this message
 ```
@@ -191,7 +192,7 @@ The `R` in column 2 denotes that the git commit is a revert of the preceding com
 
 ## Jira Ticket status
 
-There are 3 sections which try to convey which of the Jira tickets are not in the proper state. Each
+There are 4 sections that try to convey which of the Jira tickets are not in the proper state. Each
 section will print a state for the section.
 
 ```
