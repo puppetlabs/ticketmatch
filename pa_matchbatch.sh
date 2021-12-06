@@ -66,6 +66,21 @@ containsElement() {
 
 # get rev hashes in the form [to_rev]|[url]
 getComponentRevMap() {
+
+	# handle pxp-agent repo separately
+	local pxp_agent_version=$(ruby -rjson -e'j = JSON.parse(STDIN.read); printf(j["version"])' < ${PUPPET_AGENT_DIR}/configs/components/pxp-agent.json)
+
+	if [[ ! -d pxp-agent-vanagon ]]; then
+		git clone --quiet git@github.com:puppetlabs/pxp-agent-vanagon.git
+	fi
+	pushd pxp-agent-vanagon
+		git fetch --all --quiet
+		git checkout --quiet ${pxp_agent_version}
+		for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
+			ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
+		done
+	popd
+
 	pushd ${PUPPET_AGENT_DIR}
 		# looking for components not pinned to a 'refs/tags' element, and of those, filtering out (keeping) the ones owned by puppetlabs
 		for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
@@ -210,7 +225,7 @@ cloneOrFetch() {
 	if [[ -d ${repoName} ]]; then
 		pushd ${repoName}
 			echo "Fetching ${FETCH_REMOTE} for ${repoName} rev ${targetRev}..."
-      git fetch ${FETCH_REMOTE} --tags --quiet
+			git fetch ${FETCH_REMOTE} --tags --quiet
 			git checkout --quiet ${targetRev}
 		popd
 	else
@@ -324,10 +339,6 @@ for currentItem in ${repoRevMap}; do
 		echo "(From tag '$from_rev' to ref '$to_rev' - JIRA fixVersion is '$(getJiraFixedInFor $public_name) $fix_ver')"
 		echo
 		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" | sed 's/^/\t/g'
-		echo
-		echo "Checking: ${foss_name}"
-		echo "from_rev: $from_rev, to_rev: $to_rev, fix_ver: $fix_ver"
-		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}"
 		echo
 	popd
 done
