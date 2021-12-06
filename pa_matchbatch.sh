@@ -66,6 +66,21 @@ containsElement() {
 
 # get rev hashes in the form [to_rev]|[url]
 getComponentRevMap() {
+
+	# handle pxp-agent repo separately
+	local pxp_agent_version=$(ruby -rjson -e'j = JSON.parse(STDIN.read); printf(j["version"])' < ${PUPPET_AGENT_DIR}/configs/components/pxp-agent.json)
+
+	if [[ ! -d pxp-agent-vanagon ]]; then
+		git clone --quiet git@github.com:puppetlabs/pxp-agent-vanagon.git
+	fi
+	pushd pxp-agent-vanagon
+		git fetch --all --quiet
+		git checkout --quiet ${pxp_agent_version}
+		for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
+			ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
+		done
+	popd
+
 	pushd ${PUPPET_AGENT_DIR}
 		# looking for components not pinned to a 'refs/tags' element, and of those, filtering out (keeping) the ones owned by puppetlabs
 		for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
@@ -210,7 +225,7 @@ cloneOrFetch() {
 	if [[ -d ${repoName} ]]; then
 		pushd ${repoName}
 			echo "Fetching ${FETCH_REMOTE} for ${repoName} rev ${targetRev}..."
-      git fetch ${FETCH_REMOTE} --tags --quiet
+			git fetch ${FETCH_REMOTE} --tags --quiet
 			git checkout --quiet ${targetRev}
 		popd
 	else
