@@ -68,18 +68,19 @@ containsElement() {
 getComponentRevMap() {
 
 	# handle pxp-agent repo separately
-	local pxp_agent_version=$(ruby -rjson -e'j = JSON.parse(STDIN.read); printf(j["version"])' < ${PUPPET_AGENT_DIR}/configs/components/pxp-agent.json)
-
-	if [[ ! -d pxp-agent-vanagon ]]; then
+	# pxp-agent-vanagon is only used in puppet-agent 7 or greater
+	if [[ ! -d pxp-agent-vanagon  ]] && [[ $(sed -ne "s/\([0-9]*\)\.[0-9]*\.[0-9]*/\1/p" ${PUPPET_AGENT_DIR}/VERSION) -ge 7 ]]; 
+	then
+		local pxp_agent_version=$(ruby -rjson -e'j = JSON.parse(STDIN.read); printf(j["version"])' < ${PUPPET_AGENT_DIR}/configs/components/pxp-agent.json)
 		git clone --quiet git@github.com:puppetlabs/pxp-agent-vanagon.git
+		pushd pxp-agent-vanagon
+			git fetch --all --quiet
+			git checkout --quiet ${pxp_agent_version}
+			for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
+				ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
+			done
+		popd
 	fi
-	pushd pxp-agent-vanagon
-		git fetch --all --quiet
-		git checkout --quiet ${pxp_agent_version}
-		for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
-			ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
-		done
-	popd
 
 	pushd ${PUPPET_AGENT_DIR}
 		# looking for components not pinned to a 'refs/tags' element, and of those, filtering out (keeping) the ones owned by puppetlabs
