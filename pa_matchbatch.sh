@@ -21,6 +21,13 @@ FETCH_REMOTE=${FETCH_REMOTE:-origin}
 overridesFile="/tmp/version_overrides.txt"
 OVERRIDE_PATH=$(realpath ${OVERRIDE_PATH:-${overridesFile}})
 
+# optionally read in the auth token
+if [[ -z "${JIRA_AUTH_TOKEN}" ]]; then
+    AUTH_TOKEN_ARG=""
+else
+    AUTH_TOKEN_ARG="-a ${JIRA_AUTH_TOKEN}"
+fi
+
 echo_bold () {
     echo "$(tput bold)${1}$(tput sgr0)"
 }
@@ -339,7 +346,7 @@ for currentItem in ${repoRevMap}; do
 		echo_bold "Ticketmatch results for $public_name"
 		echo "(From tag '$from_rev' to ref '$to_rev' - JIRA fixVersion is '$(getJiraFixedInFor $public_name) $fix_ver')"
 		echo
-		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" | sed 's/^/\t/g'
+		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" ${AUTH_TOKEN_ARG}| sed 's/^/\t/g'
 		echo
 	popd
 done
