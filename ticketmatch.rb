@@ -9,6 +9,7 @@ require 'rubygems'
 require 'highline/import' # see https://github.com/JEG2/highline
 require 'json'
 require 'optparse'
+require 'base64'
 
 # store the basic information of a git log message
 class GitEntry
@@ -199,6 +200,7 @@ git_to_rev = nil
 jira_project_name = nil
 jira_project_fixed_version = nil
 jira_team_name = nil
+jira_auth_token = nil
 interactive = true
 
 parser = OptionParser.new do |opts|
@@ -226,6 +228,10 @@ parser = OptionParser.new do |opts|
 
   opts.on('-c', '--ci', 'continuous integration mode (no prompting)') do
     interactive = false;
+  end
+
+  opts.on('-a', '--jira-auth-token token', 'personal access token for JIRA authentication') do |auth_token|
+    jira_auth_token = auth_token;
   end
 
   opts.on('-h', '--help', 'this message') do
@@ -315,8 +321,10 @@ jira_data = {
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
 
+jira_auth_header = jira_auth_token ? "-H 'Authorization: Bearer #{jira_auth_token}'" : ''
+
 begin
-  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
+  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
