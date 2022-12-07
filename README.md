@@ -119,6 +119,10 @@ pxp-agent:1.11.0
 
 Specify the path to this file in **`$OVERRIDE_PATH`** while running pa_matchbatch.sh.
 
+If the version numbers for the components are not being overriden even after creating a text file with their versions and defining the **`$OVERRIDE_PATH`** environment variable, check if the puppet-agent and component repos in your ticketmatch repo were cloned during a previous run of `pa_matchbatch.sh`. If so, use this command so they can be re-cloned:
+
+```$  git clean -xffd  ```
+
 ### Other environment variables of interest
 
 There are a few additional environment variables (see `WORKSPACE`, above) that control behavior. All
