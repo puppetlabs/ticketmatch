@@ -21,12 +21,8 @@ FETCH_REMOTE=${FETCH_REMOTE:-origin}
 overridesFile="/tmp/version_overrides.txt"
 OVERRIDE_PATH=$(realpath ${OVERRIDE_PATH:-${overridesFile}})
 
-# optionally read in the auth token
-if [[ -z "${JIRA_AUTH_TOKEN}" ]]; then
-    AUTH_TOKEN_ARG=""
-else
-    AUTH_TOKEN_ARG="-a ${JIRA_AUTH_TOKEN}"
-fi
+# read in the auth token
+AUTH_TOKEN_ARG="-a ${JIRA_AUTH_TOKEN}"
 
 echo_bold () {
     echo "$(tput bold)${1}$(tput sgr0)"

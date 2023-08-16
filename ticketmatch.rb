@@ -316,15 +316,15 @@ query = "project = #{jira_project_name}"
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status', 'customfield_14200', 'customfield_11100', 'customfield_12100']
+    :fields     => ['status', 'customfield_14200', 'customfield_11100', 'customfield_10064']
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
 
-jira_auth_header = jira_auth_token ? "-H 'Authorization: Bearer #{jira_auth_token}'" : ''
+jira_auth_header = "-H 'Authorization: Basic #{jira_auth_token}'"
 
 begin
-  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://tickets.puppetlabs.com/rest/api/2/search})
+  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://perforce.atlassian.net/rest/api/2/search})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
@@ -341,7 +341,7 @@ jira_issues['issues'].each do |issue|
                           issue['fields']['status']['name'],
                           issue.dig('fields', 'customfield_14200', 'value'),
                           issue.dig('fields', 'customfield_11100', 'value'),
-                          issue.dig('fields', 'customfield_12100'),
+                          issue.dig('fields', 'customfield_10064'),
                           in_git=0)
 end
 if jira_tickets.empty?
