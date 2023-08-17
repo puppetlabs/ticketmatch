@@ -156,7 +156,7 @@ getJiraProjectIdFor() {
 		;;
 		hiera) echo HI
 		;;
-		leatherman) echo LTH
+		leatherman) echo PA
 		;;
 		puppet) echo PUP
 		;;

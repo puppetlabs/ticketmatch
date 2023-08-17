@@ -137,14 +137,14 @@ end
 #
 class JiraTicket
   attr_accessor :in_git
-  attr_reader :state, :team, :release_notes, :rn_summary, :key
+  attr_reader :state, :issuetype, :team, :rn_summary, :key
 
-  def initialize(key, state, team, release_notes, rn_summary, in_git=0)
-    @key    = key
-    @state  = state
-    @team   = team
-    @release_notes = release_notes
-    @in_git = in_git # This is a count, if its its non-zero then something was still checked in for this ticket
+  def initialize(key, state, issuetype, team, rn_summary, in_git=0)
+    @key       = key
+    @state     = state
+    @issuetype = issuetype
+    @team      = team
+    @in_git    = in_git # This is a count, if its its non-zero then something was still checked in for this ticket
   end
 
   def to_s
@@ -171,15 +171,15 @@ class JiraTickets
     @tickets.keys
   end
 
-  def add_ticket(key, state, team, release_notes, rn_summary, in_git=0)
-    ticket = JiraTicket.new(key, state, team, release_notes, rn_summary, in_git)
+  def add_ticket(key, state, issuetype, team, rn_summary, in_git=0)
+    ticket = JiraTicket.new(key, state, issuetype, team, rn_summary, in_git)
     @tickets[key] = ticket
     unless state =~ /(Closed|Resolved)/
       @unresolved << ticket
     end
-    if release_notes.nil? || (rn_summary.nil? && (release_notes != "Not Needed"))
-      @missing_release_notes << ticket
-    end
+    # Epics in Perforce's Jira instance do not have a visible release note
+    # summary field, so we do not add Epics to the @missing_release_notes array
+    @missing_release_notes << ticket if rn_summary.nil? && issuetype != 'Epic'
   end
 
   def empty?
@@ -316,7 +316,7 @@ query = "project = #{jira_project_name}"
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status', 'customfield_14200', 'customfield_11100', 'customfield_10064']
+    :fields     => ['status', 'issuetype', 'customfield_10067', 'customfield_10064']
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
@@ -339,8 +339,8 @@ jira_tickets = JiraTickets.new
 jira_issues['issues'].each do |issue|
   jira_tickets.add_ticket(issue['key'],
                           issue['fields']['status']['name'],
-                          issue.dig('fields', 'customfield_14200', 'value'),
-                          issue.dig('fields', 'customfield_11100', 'value'),
+                          issue['fields']['issuetype']['name'],
+                          issue.dig('fields', 'customfield_10067', 'value'),
                           issue.dig('fields', 'customfield_10064'),
                           in_git=0)
 end
