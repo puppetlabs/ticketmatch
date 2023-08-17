@@ -316,7 +316,7 @@ query = "project = #{jira_project_name}"
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status', 'customfield_14200', 'customfield_11100', 'customfield_10064']
+    :fields     => ['status', 'customfield_10067', 'customfield_11100', 'customfield_10064']
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
@@ -339,7 +339,7 @@ jira_tickets = JiraTickets.new
 jira_issues['issues'].each do |issue|
   jira_tickets.add_ticket(issue['key'],
                           issue['fields']['status']['name'],
-                          issue.dig('fields', 'customfield_14200', 'value'),
+                          issue.dig('fields', 'customfield_10067', 'value'),
                           issue.dig('fields', 'customfield_11100', 'value'),
                           issue.dig('fields', 'customfield_10064'),
                           in_git=0)
