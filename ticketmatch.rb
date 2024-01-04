@@ -324,7 +324,7 @@ jira_post_data = JSON.fast_generate(jira_data)
 jira_auth_header = "-H 'Authorization: Basic #{jira_auth_token}'"
 
 begin
-  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://perforce.atlassian.net/rest/api/2/search})
+  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://perforce.atlassian.net/rest/api/3/search})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
