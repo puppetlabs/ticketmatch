@@ -11,6 +11,9 @@ require 'json'
 require 'optparse'
 require 'base64'
 
+CF_SCRUM_TEAM = 'customfield_10067'
+CF_RELEASE_NOTES_SUMMARY = 'customfield_10064'
+
 # store the basic information of a git log message
 class GitEntry
   attr_reader :hash, :description
@@ -172,7 +175,7 @@ class JiraTickets
   end
 
   def add_ticket(key, state, issuetype, team, rn_summary, in_git=0)
-    ticket = JiraTicket.new(key, state, issuetype, team, rn_summary, in_git)
+    ticket = JiraTicket.new(key, state, team, rn_summary, in_git)
     @tickets[key] = ticket
     unless state =~ /(Closed|Resolved)/
       @unresolved << ticket
@@ -316,7 +319,7 @@ query = "project = #{jira_project_name}"
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status', 'issuetype', 'customfield_10067', 'customfield_10064']
+    :fields     => ['issuetype', 'status', CF_SCRUM_TEAM, CF_RELEASE_NOTES_SUMMARY]
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
@@ -330,6 +333,18 @@ rescue
   exit(status=1)
 end
 
+def release_notes_summary(issue, field)
+  case issue.dig('fields', field, 'type')
+  when 'doc' # atlassian doc format
+    content = issue.dig('fields', field, 'content')
+    content&.first&.dig('content')&.first&.dig('text')
+  when nil, ''
+    ''
+  else
+    abort("Don't know how to get release notes for #{issue['key']}")
+  end
+end
+
 if jira_issues['issues'].nil?
   say("JIRA returned no results for project '#{jira_project_name}' and fix version '#{jira_project_fixed_version}'")
   say("<%= color(%Q[#{jira_issues['errorMessages'].join}], RED) %>") if jira_issues['errorMessages']
@@ -340,8 +355,8 @@ jira_issues['issues'].each do |issue|
   jira_tickets.add_ticket(issue['key'],
                           issue['fields']['status']['name'],
                           issue['fields']['issuetype']['name'],
-                          issue.dig('fields', 'customfield_10067', 'value'),
-                          issue.dig('fields', 'customfield_10064'),
+                          issue.dig('fields', CF_SCRUM_TEAM, 'value'),
+                          release_notes_summary(issue, CF_RELEASE_NOTES_SUMMARY),
                           in_git=0)
 end
 if jira_tickets.empty?
