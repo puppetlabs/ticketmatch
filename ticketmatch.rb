@@ -177,7 +177,7 @@ class JiraTickets
   def add_ticket(key, state, issuetype, team, rn_summary, in_git=0)
     ticket = JiraTicket.new(key, state, team, rn_summary, in_git)
     @tickets[key] = ticket
-    unless state =~ /(Closed|Resolved)/
+    unless state =~ /(Closed|Resolved|Done)/
       @unresolved << ticket
     end
     # Epics in Perforce's Jira instance do not have a visible release note
