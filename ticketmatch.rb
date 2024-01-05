@@ -410,6 +410,12 @@ git_commits.keys.each do |ticket|
   end
 end
 
+def generate_url(keys)
+  url = "https://perforce.atlassian.net/issues/?jql=key in (#{keys.join(',')})"
+  url.gsub!(' ', '%20')
+  url.gsub!(',', '%2C')
+end
+
 puts
 puts '----- Git commits in Jira -----'
 known_jira_tickets = jira_tickets.keys
@@ -427,6 +433,7 @@ if !unknown_issues.empty?
       say("<%= color(%Q[#{ticket}], RED) %>")
     end
   end
+  say(generate_url(unknown_issues.reject { |ticket| ticket == 'REVERT' }))
 else
   say("<%= color('ALL COMMIT TOKENS WERE FOUND IN JIRA', GREEN) %>")
 end
@@ -445,6 +452,7 @@ if !unresolved_not_in_git.empty?
   unresolved_not_in_git.each do |ticket|
     say("<%= color(%Q[#{ticket}], RED) %>")
   end
+  say(generate_url(unresolved_not_in_git.map(&:key)))
 else
   say("<%= color('ALL ISSUES WERE FOUND IN GIT', GREEN) %>")
 end
@@ -456,6 +464,7 @@ if !unresolved_in_git.empty?
   unresolved_in_git.each do |ticket|
     say("<%= color(%Q[#{ticket}], RED) %>")
   end
+  say(generate_url(unresolved_in_git.map(&:key)))
 else
   say("<%= color('ALL ISSUES WERE RESOLVED IN JIRA', GREEN) %>")
 end
@@ -473,6 +482,7 @@ if !tickets_missing_release_notes.empty?
   tickets_missing_release_notes.each do |ticket|
     say("<%= color(%Q[#{ticket}], RED) %>")
   end
+  say(generate_url(tickets_missing_release_notes.map(&:key)))
 else
   say("<%= color('ALL ISSUES CONTAIN RELEASE NOTES', GREEN) %>")
 end
