@@ -487,4 +487,8 @@ else
   say("<%= color('ALL ISSUES CONTAIN RELEASE NOTES', GREEN) %>")
 end
 
+puts
+puts "----- All Jira tickets with fix version '#{jira_project_fixed_version}' -----"
+say(generate_url(known_jira_tickets))
+
 exit 0
