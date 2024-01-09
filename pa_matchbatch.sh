@@ -22,7 +22,26 @@ overridesFile="/tmp/version_overrides.txt"
 OVERRIDE_PATH=$(realpath ${OVERRIDE_PATH:-${overridesFile}})
 
 # read in the auth token
-AUTH_TOKEN_ARG="-a ${JIRA_AUTH_TOKEN}"
+if [[ -z "$JIRA_AUTH_TOKEN" ]]; then
+    >&2 cat <<EOF
+Error: The JIRA_AUTH_TOKEN environment variable must be set.
+
+Create a token at https://id.atlassian.com/manage-profile/security/api-tokens and run
+
+EOF
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        >&2 cat <<'EOF'
+export JIRA_AUTH_TOKEN=$(echo -n '<first>.<last>@perforce.com:<token>' | base64 --break=0)
+EOF
+    else
+        >&2 cat <<'EOF'
+export JIRA_AUTH_TOKEN=$(echo -n '<first>.<last>@perforce.com:<token>' | base64 --wrap=0)
+EOF
+    fi
+    exit 1
+else
+    AUTH_TOKEN_ARG="-a ${JIRA_AUTH_TOKEN}"
+fi
 
 echo_bold () {
     echo "$(tput bold)${1}$(tput sgr0)"

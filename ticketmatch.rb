@@ -11,6 +11,9 @@ require 'json'
 require 'optparse'
 require 'base64'
 
+CF_SCRUM_TEAM = 'customfield_10067'
+CF_RELEASE_NOTES_SUMMARY = 'customfield_10064'
+
 # store the basic information of a git log message
 class GitEntry
   attr_reader :hash, :description
@@ -172,9 +175,9 @@ class JiraTickets
   end
 
   def add_ticket(key, state, issuetype, team, rn_summary, in_git=0)
-    ticket = JiraTicket.new(key, state, issuetype, team, rn_summary, in_git)
+    ticket = JiraTicket.new(key, state, team, rn_summary, in_git)
     @tickets[key] = ticket
-    unless state =~ /(Closed|Resolved)/
+    unless state =~ /(Closed|Resolved|Done)/
       @unresolved << ticket
     end
     # Epics in Perforce's Jira instance do not have a visible release note
@@ -316,7 +319,7 @@ query = "project = #{jira_project_name}"
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
     :maxResults => -1,
-    :fields     => ['status', 'issuetype', 'customfield_10067', 'customfield_10064']
+    :fields     => ['issuetype', 'status', CF_SCRUM_TEAM, CF_RELEASE_NOTES_SUMMARY]
 }
 # Process file with Jira issues
 jira_post_data = JSON.fast_generate(jira_data)
@@ -324,10 +327,22 @@ jira_post_data = JSON.fast_generate(jira_data)
 jira_auth_header = "-H 'Authorization: Basic #{jira_auth_token}'"
 
 begin
-  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://perforce.atlassian.net/rest/api/2/search})
+  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://perforce.atlassian.net/rest/api/3/search})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
+end
+
+def release_notes_summary(issue, field)
+  case issue.dig('fields', field, 'type')
+  when 'doc' # atlassian doc format
+    content = issue.dig('fields', field, 'content')
+    content&.first&.dig('content')&.first&.dig('text')
+  when nil, ''
+    ''
+  else
+    abort("Don't know how to get release notes for #{issue['key']}")
+  end
 end
 
 if jira_issues['issues'].nil?
@@ -340,8 +355,8 @@ jira_issues['issues'].each do |issue|
   jira_tickets.add_ticket(issue['key'],
                           issue['fields']['status']['name'],
                           issue['fields']['issuetype']['name'],
-                          issue.dig('fields', 'customfield_10067', 'value'),
-                          issue.dig('fields', 'customfield_10064'),
+                          issue.dig('fields', CF_SCRUM_TEAM, 'value'),
+                          release_notes_summary(issue, CF_RELEASE_NOTES_SUMMARY),
                           in_git=0)
 end
 if jira_tickets.empty?
@@ -395,6 +410,12 @@ git_commits.keys.each do |ticket|
   end
 end
 
+def generate_url(keys)
+  url = "https://perforce.atlassian.net/issues/?jql=key in (#{keys.join(',')})"
+  url.gsub!(' ', '%20')
+  url.gsub!(',', '%2C')
+end
+
 puts
 puts '----- Git commits in Jira -----'
 known_jira_tickets = jira_tickets.keys
@@ -412,6 +433,7 @@ if !unknown_issues.empty?
       say("<%= color(%Q[#{ticket}], RED) %>")
     end
   end
+  say(generate_url(unknown_issues.reject { |ticket| ticket == 'REVERT' }))
 else
   say("<%= color('ALL COMMIT TOKENS WERE FOUND IN JIRA', GREEN) %>")
 end
@@ -430,6 +452,7 @@ if !unresolved_not_in_git.empty?
   unresolved_not_in_git.each do |ticket|
     say("<%= color(%Q[#{ticket}], RED) %>")
   end
+  say(generate_url(unresolved_not_in_git.map(&:key)))
 else
   say("<%= color('ALL ISSUES WERE FOUND IN GIT', GREEN) %>")
 end
@@ -441,6 +464,7 @@ if !unresolved_in_git.empty?
   unresolved_in_git.each do |ticket|
     say("<%= color(%Q[#{ticket}], RED) %>")
   end
+  say(generate_url(unresolved_in_git.map(&:key)))
 else
   say("<%= color('ALL ISSUES WERE RESOLVED IN JIRA', GREEN) %>")
 end
@@ -458,8 +482,13 @@ if !tickets_missing_release_notes.empty?
   tickets_missing_release_notes.each do |ticket|
     say("<%= color(%Q[#{ticket}], RED) %>")
   end
+  say(generate_url(tickets_missing_release_notes.map(&:key)))
 else
   say("<%= color('ALL ISSUES CONTAIN RELEASE NOTES', GREEN) %>")
 end
+
+puts
+puts "----- All Jira tickets with fix version '#{jira_project_fixed_version}' -----"
+say(generate_url(known_jira_tickets))
 
 exit 0
