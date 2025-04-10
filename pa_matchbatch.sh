@@ -6,7 +6,7 @@ unset CDPATH
 # See README.md for arguments and available environment variables.
 
 # where to find the agent
-REPO=${REPO:-puppet-agent}
+REPO=${REPO:-puppet-agent-private}
 puppet_agent_repo="git@github.com:puppetlabs/${REPO}.git"
 PUPPET_AGENT_URL=${PUPPET_AGENT_URL:-${puppet_agent_repo}}
 PUPPET_AGENT_DIR=${PUPPET_AGENT_DIR:-${REPO}}
@@ -310,7 +310,7 @@ echo "starting with repoRevMap '${repoRevMap}'"
 repoRevMap="${puppetAgentBaseRev}|${PUPPET_AGENT_URL} ${repoRevMap}"
 
 # add puppet-runtime to the list
-repoRevMap="$newRuntimeVersion|git@github.com:puppetlabs/puppet-runtime.git ${repoRevMap}"
+repoRevMap="$newRuntimeVersion|git@github.com:puppetlabs/puppet-runtime-private.git ${repoRevMap}"
 
 versionsUsed=""
 ignored_repos="${IGNORE_FOR}"
