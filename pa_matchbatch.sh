@@ -137,7 +137,7 @@ getFixVerFor() {
 	fi
 
 	# Ruby components have a version.rb in various places
-	componentName="$(basename ${PWD})"
+	componentName=$(stripPrivateSuffix "$(basename ${PWD})")
 	if [[ $componentName = "puppet-resource_api" ]]; then
 		# The resource api has a './lib/puppet/resource_api/version.rb' which contains a `VERSION = <version>` line
 		versionFile="./lib/puppet/resource_api/version.rb"
