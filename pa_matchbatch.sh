@@ -94,8 +94,8 @@ getComponentRevMap() {
 	if [[ ! -d pxp-agent-vanagon  ]] && [[ $(sed -ne "s/\([0-9]*\)\.[0-9]*\.[0-9]*/\1/p" ${PUPPET_AGENT_DIR}/VERSION) -ge 7 ]]; 
 	then
 		local pxp_agent_version=$(ruby -rjson -e'j = JSON.parse(STDIN.read); printf(j["version"])' < ${PUPPET_AGENT_DIR}/configs/components/pxp-agent.json)
-		git clone --quiet git@github.com:puppetlabs/pxp-agent-vanagon.git
-		pushd pxp-agent-vanagon
+		git clone --quiet git@github.com:puppetlabs/pxp-agent-vanagon-private.git
+		pushd pxp-agent-vanagon-private
 			git fetch --all --quiet
 			git checkout --quiet ${pxp_agent_version}
 			for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
