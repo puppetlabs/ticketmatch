@@ -318,7 +318,7 @@ query = "project = #{jira_project_name}"
 # get the list of tickets from the JIRA project that contain the fixed version
 jira_data = {
     :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
-    :maxResults => -1,
+    :maxResults => 5000,
     :fields     => ['issuetype', 'status', CF_SCRUM_TEAM, CF_RELEASE_NOTES_SUMMARY]
 }
 # Process file with Jira issues
@@ -327,7 +327,7 @@ jira_post_data = JSON.fast_generate(jira_data)
 jira_auth_header = "-H 'Authorization: Basic #{jira_auth_token}'"
 
 begin
-  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://perforce.atlassian.net/rest/api/3/search})
+  jira_issues = JSON.parse(%x{curl -s -S -X POST -H 'Content-Type: application/json' #{jira_auth_header} --data '#{jira_post_data}' https://perforce.atlassian.net/rest/api/3/search/jql})
 rescue
   say('Unable to obtain list of issues from JIRA')
   exit(status=1)
