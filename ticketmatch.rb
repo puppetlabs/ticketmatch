@@ -420,7 +420,7 @@ puts
 puts '----- Git commits in Jira -----'
 known_jira_tickets = jira_tickets.keys
 unknown_issues     = git_commits.keys.reject do |ticket|
-  known_jira_tickets.include?(ticket) || ["MAINT", "DOC", "DOCS", "TRIVIAL", "PACKAGING", "UNMARKED"].include?(ticket)
+  known_jira_tickets.include?(ticket) || %w[DOC DOCS MAINT PACKAGING PUPDOC TRIVIAL UNMARKED].include?(ticket)
 end
 if !unknown_issues.empty?
   say("<%= color('COMMIT TOKENS NOT FOUND IN JIRA (OR NOT WITH FIX VERSION OF #{jira_project_fixed_version})', RED) %>")
