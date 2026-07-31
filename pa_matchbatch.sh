@@ -165,78 +165,6 @@ getFixVerFor() {
 	git log -1 --no-merges --oneline -E --grep='\(packaging\) Bump to version .*' | sed -Ee "s/^.*version '?(([0-9]+\.)*[0-9]+).*/\1/"
 }
 
-getJiraProjectIdFor() {
-	case "${1}" in
-		facter) echo FACT
-		;;
-		facter-ng) echo FACT
-		;;
-		hiera) echo HI
-		;;
-		leatherman) echo PA
-		;;
-		puppet) echo PUP
-		;;
-		pxp-agent) echo PCP
-		;;
-		puppet-agent) echo PA
-		;;
-		cpp-pcp-client) echo PCP
-		;;
-		libwhereami) echo FACT
-		;;
-		marionette-collective) echo MCO
-		;;
-		puppet-resource_api) echo PDK
-		;;
-		cpp-hocon) echo HC
-		;;
-		nssm) echo PA  # this is on purpose
-		;;
-		puppet-runtime) echo PA
-		;;
-		*) (>&2 echo "Error: need to add JIRA project mapping for '${1}'.")
-			exit 1
-		;;
-	esac
-}
-
-getJiraFixedInFor() {
-	case "${1}" in
-		facter) echo FACT
-		;;
-		facter-ng) echo FACT
-		;;
-		hiera) echo HI
-		;;
-		leatherman) echo LTH
-		;;
-		puppet) echo PUP
-		;;
-		pxp-agent) echo pxp-agent
-		;;
-		puppet-agent) echo puppet-agent
-		;;
-		cpp-pcp-client) echo cpp-pcp-client
-		;;
-		libwhereami) echo whereami  # potential headache
-		;;
-		marionette-collective) echo MCO
-		;;
-		puppet-resource_api) echo RSAPI
-		;;
-		cpp-hocon) echo HC
-		;;
-		puppet-runtime) echo puppet-agent
-		;;
-		nssm) echo puppet-agent  # this is on purpose
-		;;
-		*) (>&2 echo "Error: need to add JIRA fixed-in version mapping for '${1}'.")
-			exit 1
-		;;
-	esac
-}
-
 cloneOrFetch() {
 	local targetRev=${1}
 	local url=${2}
@@ -314,6 +242,9 @@ versionsUsed=""
 ignored_repos="${IGNORE_FOR}"
 only_on="${ONLY_ON}"
 
+# We track all work in the PA project and use puppet-agent for the fix version
+fix_ver=$(getFixVerFor "puppet-agent")
+
 echo "operating on repoRevMap '${repoRevMap}'"
 
 for currentItem in ${repoRevMap}; do
@@ -344,9 +275,6 @@ for currentItem in ${repoRevMap}; do
 	pushd ${repo}
 		# get current version [from_rev]
 		from_rev=$(git describe --abbrev=0 --tags) # | sed -e 's/^v//')
-		fix_ver=$(getFixVerFor "${public_name}")
-		jiraProjectId=$(getJiraProjectIdFor "${public_name}")
-		jiraFixedInProject=$(getJiraFixedInFor "${public_name}")
 
         	if [[ $public_name = "puppet-runtime" ]]; then
            		from_rev=${oldRuntimeVersion}
@@ -357,9 +285,9 @@ for currentItem in ${repoRevMap}; do
         	fi
 
 		echo_bold "Ticketmatch results for $public_name"
-		echo "(From tag '$from_rev' to ref '$to_rev' - JIRA fixVersion is '$(getJiraFixedInFor $public_name) $fix_ver')"
+		echo "(From tag '$from_rev' to ref '$to_rev' - JIRA fixVersion is puppet-agent ${fix_ver}"
 		echo
-		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -p "${jiraProjectId}" -v "${jiraFixedInProject} ${fix_ver}" ${AUTH_TOKEN_ARG}| sed 's/^/\t/g'
+		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -v "puppet-agent ${fix_ver}" ${AUTH_TOKEN_ARG}| sed 's/^/\t/g'
 		echo
 	popd
 done
