@@ -44,7 +44,7 @@ else
 fi
 
 echo_bold () {
-    echo "$(tput bold)${1}$(tput sgr0)"
+    echo "$(tput -T xterm bold)${1}$(tput -T xterm sgr0)"
 }
 
 print_divider () {
