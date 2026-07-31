@@ -89,20 +89,18 @@ containsElement() {
 # get rev hashes in the form [to_rev]|[url]
 getComponentRevMap() {
 
-	# handle pxp-agent repo separately
-	# pxp-agent-vanagon is only used in puppet-agent 7 or greater
-	if [[ ! -d pxp-agent-vanagon  ]] && [[ $(sed -ne "s/\([0-9]*\)\.[0-9]*\.[0-9]*/\1/p" ${PUPPET_AGENT_DIR}/VERSION) -ge 7 ]]; 
-	then
-		local pxp_agent_version=$(ruby -rjson -e'j = JSON.parse(STDIN.read); printf(j["version"])' < ${PUPPET_AGENT_DIR}/configs/components/pxp-agent.json)
-		git clone --quiet git@github.com:puppetlabs/pxp-agent-vanagon-private.git
-		pushd pxp-agent-vanagon-private
-			git fetch --all --quiet
-			git checkout --quiet ${pxp_agent_version}
-			for componentName in $(for componentFile in $(grep -lv refs/tags configs/components/*.json); do grep -l puppetlabs/ ${componentFile}; done); do
-				ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < ${componentName}
-			done
-		popd
-	fi
+	# Compiled C++ components are special--they're part of the pxp-agent project in the runtime.
+	# We have to clone the runtime and parse through the C++ components.
+	local puppet_runtime_version=$(ruby -rjson -e'j = JSON.parse(STDIN.read); printf(j["version"])' < ${PUPPET_AGENT_DIR}/configs/components/puppet-runtime.json)
+	git clone --quiet git@github.com:puppetlabs/puppet-runtime-private.git
+	pushd puppet-runtime-private
+		git fetch --all --quiet
+		git checkout --quiet ${puppet_runtime_version}
+		cppComponents=( cpp-hocon cpp-pcp-client leatherman nssm pxp-agent )
+		for cppComponent in "${cppComponents[@]}"; do
+			ruby -rjson -e'j = JSON.parse(STDIN.read); printf(" %s|%s", j["ref"], j["url"])' < "configs/components/${cppComponent}.json"
+		done
+	popd
 
 	pushd ${PUPPET_AGENT_DIR}
 		# looking for components not pinned to a 'refs/tags' element, and of those, filtering out (keeping) the ones owned by puppetlabs
