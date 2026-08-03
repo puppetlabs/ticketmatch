@@ -200,7 +200,7 @@ end
 
 git_from_rev = nil
 git_to_rev = nil
-jira_project_name = nil
+jira_project_name = 'PA'
 jira_project_fixed_version = nil
 jira_team_name = nil
 jira_auth_token = nil
