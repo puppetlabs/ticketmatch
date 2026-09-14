@@ -74,6 +74,7 @@ Usage: ruby ticketmatch.rb [options]
     -p, --project JIRA_project       JIRA project ID
     -v, --version version_fixed_in   JIRA "fixed-in" version (in quotes for now, please)
     -m, --team JIRA_team             JIRA team assigned tickets within JIRA project
+    -l, --ignore-label LABEL         JIRA label(s) whose tickets should be excluded (comma-separated)
     -c, --ci                         continuous integration mode (no prompting)
     -a, --jira-auth-token            personal access token for JIRA authentication
     -h, --help                       this message
@@ -106,16 +107,21 @@ during a release.* You will need to override this assumption for:
 - Any update to an X or Y version number, or
 - Any circumstance where the reported version number is incorrect for some reason (a bad mergeup, for example)
 
+**Note:** All components search the single **PA** JIRA project using a shared `puppet-agent
+<version>` fixVersion (see "Batch processing" above) rather than each component's own JIRA project
+and version, as used to be the case. So every override value is a `puppet-agent`-style version
+string (e.g. `8.21.0`), not the component's own real release version (e.g. facter's actual `4.21.0`
+as shipped alongside puppet-agent 8.21.0) — those get combined into a search for the fixVersion
+`"puppet-agent 8.21.0"`, not `"facter 4.21.0"`.
+
 To override the assumed version numbers for some or all components, create a text file with one
-`<component-name>:<version>` entry on each line. For example, this would override the assumed
-versions of puppet, puppet-agent, facter, the resource API, and pxp-agent:
+`<component-name>:<version>` entry on each line. For example, if `puppet` and `facter` tickets for
+this release were filed against fixVersion `puppet-agent 8.21.0` while `puppet-agent` itself is only
+on `8.20.0` (an X/Y bump that outpaced the rest of the release train):
 
 ```
-puppet:6.3.0
-puppet-agent:6.3.0
-facter:3.13.0
-puppet-resource_api:3.0.0
-pxp-agent:1.11.0
+puppet:8.21.0
+facter:8.21.0
 ```
 
 Specify the path to this file in **`$OVERRIDE_PATH`** while running pa_matchbatch.sh.
@@ -152,6 +158,12 @@ facter. It defaults to processing all of the repos. Note that if a repo is in bo
 then pa_matchbatch.sh will not process it.
 
 `JIRA_ACCESS_TOKEN` Perforce's Jira cloud instance is not publicly accessible, so you need to supply a JIRA personal access token for this environment variable. More information is available from Atlassian's documentation: https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis
+
+`IGNORE_LABELS` contains a (comma-separated) list of JIRA labels whose tickets should be excluded
+from the JIRA search entirely, e.g. release-process tickets like "Reconcile JIRA tickets targeted at
+this release" (see [PA-9311](https://perforce.atlassian.net/browse/PA-9311)), which carry the
+`release` label and would otherwise show up as noise under "Unresolved Jira tickets not in git
+commits". Defaults to `release`. Set `IGNORE_LABELS=""` to disable this filtering.
 
 # How to read the output
 

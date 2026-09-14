@@ -245,6 +245,12 @@ only_on="${ONLY_ON}"
 # We track all work in the PA project and use puppet-agent for the fix version
 fix_ver=$(getFixVerFor "puppet-agent")
 
+# release-process tickets (e.g. "reconcile JIRA tickets", "check Mend", etc.) carry
+# the "release" label and don't represent code changes, so exclude them by default
+ignore_labels="${IGNORE_LABELS-release}"
+LABEL_ARG=""
+[[ -n "${ignore_labels}" ]] && LABEL_ARG="-l ${ignore_labels}"
+
 echo "operating on repoRevMap '${repoRevMap}'"
 
 for currentItem in ${repoRevMap}; do
@@ -287,7 +293,7 @@ for currentItem in ${repoRevMap}; do
 		echo_bold "Ticketmatch results for $public_name"
 		echo "(From tag '$from_rev' to ref '$to_rev' - JIRA fixVersion is puppet-agent ${fix_ver}"
 		echo
-		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -v "puppet-agent ${fix_ver}" ${AUTH_TOKEN_ARG}| sed 's/^/\t/g'
+		ruby ${TICKETMATCH_PATH}/ticketmatch.rb --ci -f "${from_rev}" -t "${to_rev}" -v "puppet-agent ${fix_ver}" ${AUTH_TOKEN_ARG} ${LABEL_ARG}| sed 's/^/\t/g'
 		echo
 	popd
 done

@@ -203,6 +203,7 @@ git_to_rev = nil
 jira_project_name = 'PA'
 jira_project_fixed_version = nil
 jira_team_name = nil
+jira_ignore_labels = []
 jira_auth_token = nil
 interactive = true
 
@@ -227,6 +228,10 @@ parser = OptionParser.new do |opts|
 
   opts.on('-m', '--team JIRA_team', 'JIRA team assigned tickets within JIRA project') do |team_name|
     jira_team_name = team_name;
+  end
+
+  opts.on('-l', '--ignore-label LABEL', 'JIRA label(s) whose tickets should be excluded (comma-separated)') do |labels|
+    jira_ignore_labels = labels.split(',').map(&:strip).reject(&:empty?)
   end
 
   opts.on('-c', '--ci', 'continuous integration mode (no prompting)') do
@@ -314,10 +319,18 @@ end
 jira_team_name = nil if jira_team_name == ""
 
 query = "project = #{jira_project_name}"
+query += " AND fixVersion = \"#{jira_project_fixed_version}\""
+unless jira_ignore_labels.empty?
+  quoted_labels = jira_ignore_labels.map { |label| "\"#{label}\"" }.join(', ')
+  # "labels NOT IN (...)" alone excludes issues with no labels at all, so
+  # explicitly include those too
+  query += " AND (labels NOT IN (#{quoted_labels}) OR labels IS EMPTY)"
+end
+query += " ORDER BY key"
 
 # get the list of tickets from the JIRA project that contain the fixed version
 jira_data = {
-    :jql        =>  query + " AND fixVersion = \"#{jira_project_fixed_version}\" ORDER BY key",
+    :jql        =>  query,
     :maxResults => 5000,
     :fields     => ['issuetype', 'status', CF_SCRUM_TEAM, CF_RELEASE_NOTES_SUMMARY]
 }
